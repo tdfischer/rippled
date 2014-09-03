@@ -43,6 +43,8 @@
 #include <ripple/module/app/main/Application.cpp>
 #include <ripple/module/app/main/Main.cpp>
 
+#include <ripple/metrics/impl/MetricsImpl.cpp>
+
 //------------------------------------------------------------------------------
 
 namespace ripple {
