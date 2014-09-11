@@ -200,6 +200,20 @@ protected:
  * @see MetricsElementBase
  */
 
+
+template <typename T>
+const T averageAggregator (const std::vector<T>& v)
+{
+  T sum;
+  for (auto i = v.cbegin(); i != v.cend(); i++)
+    sum += (*i);
+  return sum / v.size();
+}
+
+//FIXME: Doesn't work in the template params
+template <typename T>
+using Aggregator = const T (*)(const std::vector<T>&);
+
 template <typename T, int historySize = DEFAULT_HISTORY_SIZE>
 class ExposableMetricsElement
     : public MetricsElementBase {
@@ -252,11 +266,52 @@ protected:
     std::string m_name;
     History m_history;
 
+    constexpr std::chrono::seconds bucketStartTime(const std::chrono::seconds&) const {
+      return -std::chrono::seconds(historySize);
+    }
+
+    constexpr std::chrono::seconds bucketStartTime(const std::chrono::minutes&) const {
+      return bucketStartTime(std::chrono::seconds()) - std::chrono::minutes(historySize);
+    }
+
+    constexpr std::chrono::seconds bucketStartTime(const std::chrono::hours&) const {
+      return bucketStartTime(std::chrono::minutes()) - std::chrono::hours(historySize);
+    }
+
+    constexpr int aggregationSize(const std::chrono::seconds&) const {return 60;}
+    constexpr int aggregationSize(const std::chrono::minutes&) const {return 60;}
+    constexpr int aggregationSize(const std::chrono::hours&) const {return 24;}
+
+    template <typename Duration>
+    void aggregateBucketClass () {
+      Clock::time_point now (Clock::now());
+      Clock::time_point startTime (now - bucketStartTime(Duration()));
+      Clock::time_point endTime (startTime + Duration(historySize));
+      Clock::time_point aggregationEndTime (startTime + Duration(aggregationSize(Duration())));
+
+      typename History::iterator start = m_history.lower_bound (startTime)--;
+      typename History::iterator aggregationEnd = m_history.upper_bound (aggregationEndTime);
+
+      if (std::distance(start, aggregationEnd) >= historySize) {
+        std::vector<T> oldValues(aggregationSize(Duration()));
+
+        std::cout << "Aggregating " << std::distance(start, aggregationEnd) << " elements" << std::endl;
+        //FIXME: averageAggregator() to a proper reduce(a,b) syntax
+        for (auto i = aggregationEnd++; i != start; i++) {
+          oldValues.push_back((*i).second);
+          m_history.erase (i);
+        }
+        m_history.emplace(std::make_pair (startTime, averageAggregator (oldValues)));
+      }
+    }
+
     const Mete addValue(const T& v) {
         const Clock::time_point now(Clock::now());
-        m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
-        while (m_history.size() >= historySize)
-            m_history.erase(m_history.cbegin());
+
+        m_history.emplace_hint(m_history.begin(), std::make_pair(now, v));
+
+        aggregateBucketClass<std::chrono::seconds>();
+
         return Mete(now, v);
     }
 };
