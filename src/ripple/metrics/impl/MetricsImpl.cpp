@@ -314,9 +314,8 @@ MetricsImpl::onRequest (ripple::HTTP::Session& session)
                     readTimeParam (params, "end", Clock::now ())
                 );
 
-                std::cout << "Time span: " << start << " to " << end << std::endl;
-
-                ret = resource->history (HistoryRange (start, end));
+                if (resource)
+                  ret = resource->history (HistoryRange (start, end));
             } else {
                 ret = Json::Value (Json::objectValue);
                 std::string sensorClass = tokens[1];
