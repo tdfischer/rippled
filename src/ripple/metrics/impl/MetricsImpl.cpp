@@ -86,12 +86,6 @@ MetricsCounterImpl::~MetricsCounterImpl ()
     m_impl->remove (this);
 }
 
-const Json::Value
-MetricsCounterImpl::toJSON (const MetricsCounterImpl::value_type& v) const
-{
-    return static_cast<int> (v);
-}
-
 void
 MetricsCounterImpl::increment (value_type v)
 {
@@ -114,12 +108,6 @@ MetricsEventImpl::MetricsEventImpl (const std::string& name,
 MetricsEventImpl::~MetricsEventImpl ()
 {
     m_impl->remove (this);
-}
-
-const Json::Value
-MetricsEventImpl::toJSON (const MetricsEventImpl::value_type& v) const
-{
-    return static_cast<int> (v.count ());
 }
 
 void
@@ -145,12 +133,6 @@ MetricsGaugeImpl::MetricsGaugeImpl (const std::string& name,
 MetricsGaugeImpl::~MetricsGaugeImpl ()
 {
     m_impl->remove (this);
-}
-
-const Json::Value
-MetricsGaugeImpl::toJSON (const MetricsGaugeImpl::value_type& v) const
-{
-    return static_cast<int> (v);
 }
 
 void
@@ -182,12 +164,6 @@ MetricsMeterImpl::MetricsMeterImpl (const std::string& name,
 MetricsMeterImpl::~MetricsMeterImpl ()
 {
     m_impl->remove (this);
-}
-
-const Json::Value
-MetricsMeterImpl::toJSON (const MetricsMeterImpl::value_type& v) const
-{
-    return static_cast<int> (v);
 }
 
 MetricsMeterImpl&
@@ -284,19 +260,6 @@ MetricsImpl::make_meter (std::string const& meter)
 void
 MetricsImpl::onAccept (ripple::HTTP::Session& session)
 {
-}
-
-template <class T>
-Json::Value
-MetricsImpl::metricNameList () const
-{
-    Json::Value sensorList (Json::arrayValue);
-    const auto sensors = getMetricStore<T> ();
-    for (auto i = sensors.cbegin (); i != sensors.cend (); i++) {
-        sensorList.append (Json::Value ((*i)->name ().c_str ()));
-    }
-
-    return sensorList;
 }
 
 void

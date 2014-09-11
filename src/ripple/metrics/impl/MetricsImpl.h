@@ -112,8 +112,6 @@ private:
     std::forward_list<MetricsHookImpl*> m_hooks;
     std::mutex m_metricLock;
 
-    template <class T> Json::Value metricNameList () const;
-
     /**
      * createResponse: Creates a well-formatted HTTP 1.1 response
      *
@@ -121,17 +119,6 @@ private:
      * @body: Response body
      */
     std::string createResponse (int code, std::string const& body);
-
-    template <class T>
-    const Json::Value
-    metricValueList (const HistoryRange& range = HistoryRange ()) const {
-        Json::Value ret (Json::objectValue);
-        const auto store = getMetricStore<T> ();
-        for(auto i = store.cbegin (); i != store.cend (); i++) {
-            ret[(*i)->name ()] = (*i)->jsonHistory (range);
-        }
-        return ret;
-    }
 
 public:
     /**
@@ -233,32 +220,6 @@ public:
         return m_name;
     }
 
-    virtual const Json::Value toJSON(const T& v) const = 0;
-
-    const Json::Value jsonValue(
-        const Clock::time_point& nearest = Clock::now ()
-    ) const {
-        return toJSON (value (nearest));
-    }
-
-    const Json::Value jsonHistory(
-        const MetricsImpl::HistoryRange& range = MetricsImpl::HistoryRange ()
-    ) const {
-        Json::Value ret (Json::objectValue);
-        const History h = history (range.start (), range.end ());
-
-        for(auto i = h.cbegin (); i != h.cend (); i++) {
-            Clock::time_point mark = i->first;
-            std::chrono::seconds age =
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    range.end () - mark
-                );
-            ret[std::to_string (age.count ())] = toJSON (i->second);
-        }
-
-        return ret;
-    }
-
     const T
         value (Clock::time_point now = Clock::now ()) const {
             return mete (now).second;
@@ -329,7 +290,6 @@ public:
     MetricsCounterImpl(const std::string& type, MetricsImpl::Ptr const& impl);
     ~MetricsCounterImpl();
     void increment (value_type);
-    const Json::Value toJSON(const value_type& v) const override;
 
 private:
     MetricsCounterImpl& operator= (MetricsCounterImpl const&);
@@ -343,7 +303,6 @@ public:
     MetricsEventImpl(const std::string& type, MetricsImpl::Ptr const& impl);
     ~MetricsEventImpl();
     void notify (value_type const&);
-    const Json::Value toJSON(const value_type& v) const override;
 
 private:
     MetricsEventImpl& operator= (MetricsEventImpl const&);
@@ -360,8 +319,6 @@ public:
         set (value_type);
     void
         increment (difference_type);
-    const Json::Value
-        toJSON (const value_type &v) const override;
 
 private:
     MetricsGaugeImpl&
@@ -377,8 +334,6 @@ public:
     ~MetricsMeterImpl ();
     void
         increment (value_type);
-    const Json::Value
-        toJSON (const value_type& v) const override;
 
 private:
     MetricsMeterImpl&
