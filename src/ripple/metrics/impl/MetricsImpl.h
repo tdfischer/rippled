@@ -28,8 +28,6 @@
 #include <memory>
 #include <forward_list>
 
-#define DEFAULT_HISTORY_SIZE 70
-
 namespace metrics {
 
 namespace impl {
@@ -202,19 +200,16 @@ protected:
 
 
 template <typename T>
-const T averageAggregator (const std::vector<T>& v)
+const T averageAggregator (const T& a, const T& b)
 {
-  T sum;
-  for (auto i = v.cbegin(); i != v.cend(); i++)
-    sum += (*i);
-  return sum / v.size();
+  return (a + b) / 2;
 }
 
 //FIXME: Doesn't work in the template params
 template <typename T>
 using Aggregator = const T (*)(const std::vector<T>&);
 
-template <typename T, int historySize = DEFAULT_HISTORY_SIZE>
+template <typename T>
 class ExposableMetricsElement
     : public MetricsElementBase {
 public:
@@ -271,43 +266,54 @@ protected:
     }
 
     constexpr std::chrono::seconds bucketStartTime(const std::chrono::minutes&) const {
-      return std::chrono::seconds(historySize);
+      return std::chrono::seconds(aggregationSize(std::chrono::seconds()));
     }
 
     constexpr std::chrono::seconds bucketStartTime(const std::chrono::hours&) const {
-      return bucketStartTime(std::chrono::minutes()) + std::chrono::minutes(historySize);
+      return bucketStartTime(std::chrono::minutes()) + std::chrono::minutes(aggregationSize(std::chrono::minutes()));
     }
 
-    constexpr int aggregationSize(const std::chrono::seconds&) const {return 60;}
-    constexpr int aggregationSize(const std::chrono::minutes&) const {return 60;}
+    constexpr int aggregationSize(const std::chrono::seconds&) const {return 10;}
+    constexpr int aggregationSize(const std::chrono::minutes&) const {return 1;}
     constexpr int aggregationSize(const std::chrono::hours&) const {return 24;}
 
+    // m_history orders keys from past to future, left to right
+    // FIXME: Replace Duration with a FromDuration/ToDuration to get rid of
+    // aggregationSize by way of using duration_cast
     template <typename Duration>
     void aggregateBucketClass () {
+      int aggSize(aggregationSize(Duration()));
+      Duration aggDuration(aggSize);
       Clock::time_point now (Clock::now());
-      Clock::time_point bucketStart (now - bucketStartTime(Duration()));
-      Clock::time_point aggregationEndTime (bucketStart - Duration(aggregationSize(Duration())));
-      Clock::time_point aggregationStartTime (bucketStart - Duration(aggregationSize(Duration())*2));
+      Clock::time_point bucketEnd (now - bucketStartTime(aggDuration));
+      Clock::time_point bucketStart (bucketEnd - aggDuration);
+      Clock::time_point aggregationStart (bucketStart - aggDuration);
+      Clock::duration delta;
 
-      typename History::iterator start = m_history.lower_bound (aggregationStartTime);
-      typename History::iterator aggregationEnd = m_history.upper_bound (aggregationEndTime);
+      // Figure out how wide our bucket really is
+      bucketStart = (*m_history.lower_bound (bucketStart)).first;
+      aggregationStart = (*m_history.lower_bound (aggregationStart)--).first;
 
-      if (aggregationEnd == m_history.end())
-          aggregationEnd--;
+      typename History::iterator start = m_history.upper_bound (aggregationStart);
+      typename History::iterator end = m_history.lower_bound (bucketStart);
 
+      // and then how far off we are from our target size
+      delta = (bucketStart - aggregationStart) - aggDuration;
 
-      if (std::distance(start, aggregationEnd) >= historySize) {
-        std::vector<T> oldValues (aggregationSize(Duration()));
+      std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(delta) << std::endl;
 
-        std::cout << "Aggregating " << std::distance(start, aggregationEnd) << " elements into " << (now-aggregationStartTime) << std::endl;
-        //FIXME: averageAggregator() to a proper reduce(a,b) syntax
-        for (auto i = start; i != aggregationEnd && i != m_history.end() ; i++) {
-          std::cout << "Adding " << (*i).second << std::endl;
-          oldValues.push_back((*i).second);
-          m_history.erase (i);
+      // Add 500ms to account for samples that might fall between buckets
+      // FIXME: Shouldn't actually need this, and yet here we are.
+      if (delta <= std::chrono::milliseconds(500) && delta >= std::chrono::milliseconds(-500)) {
+        std::vector<T> oldValues (aggSize);
+
+        T val ((*start).second);
+        auto i = start;
+        for (i++; i != end && i != m_history.end() ; i++) {
+          val = averageAggregator (val, (*i).second);
         }
-
-        m_history.emplace(std::make_pair (aggregationStartTime, averageAggregator (oldValues)));
+        m_history.emplace_hint (start, std::make_pair (aggregationStart, val));
+        m_history.erase (start, end);
       }
     }
 
@@ -316,7 +322,11 @@ protected:
 
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
-        aggregateBucketClass<std::chrono::seconds>();
+        if (name() == "jobq.job_count") {
+          aggregateBucketClass<std::chrono::seconds>();
+          aggregateBucketClass<std::chrono::minutes>();
+          aggregateBucketClass<std::chrono::hours>();
+        }
 
         return Mete(now, v);
     }
