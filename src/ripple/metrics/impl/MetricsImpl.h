@@ -187,8 +187,8 @@ protected:
 };
 
 /**
- * ExposableMetricsElement: Base implementation of a Metrics collector element that
- * has a name
+ * ExposableMetricsElement: Base implementation of a Metrics collector element
+ * that has a name
  *
  * This class provides two protected members shared amongst implementations of
  * Counter, Meter, Gauge, and Event objects used by the @MetricsCollector
@@ -259,6 +259,9 @@ protected:
       Clock::time_point aggregationStart (bucketStart - aggDuration);
       Clock::duration delta;
 
+      bucketStart = std::chrono::time_point_cast<Duration> (bucketStart);
+      aggregationStart = std::chrono::time_point_cast<Duration> (aggregationStart);
+
       // Figure out how wide our bucket really is
       bucketStart = (*m_history.lower_bound (bucketStart)).first;
       aggregationStart = (*m_history.lower_bound (aggregationStart)--).first;
@@ -269,8 +272,8 @@ protected:
       // Account for samples that might fall between buckets
       // FIXME: Shouldn't actually need this, and yet here we are.
       if (delta >= Duration(-1)) {
-        typename History::iterator start = m_history.upper_bound (aggregationStart);
-        typename History::iterator end = m_history.lower_bound (bucketStart);
+        auto start = m_history.upper_bound (aggregationStart);
+        auto end = m_history.lower_bound (bucketStart);
 
         if (std::distance(start, end)) {
           T sum (0);
