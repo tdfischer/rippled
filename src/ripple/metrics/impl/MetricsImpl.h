@@ -261,31 +261,11 @@ protected:
     std::string m_name;
     History m_history;
 
-    constexpr std::chrono::seconds bucketStartTime(const std::chrono::seconds&) const {
-      return std::chrono::seconds(0);
-    }
-
-    constexpr std::chrono::seconds bucketStartTime(const std::chrono::minutes&) const {
-      return std::chrono::seconds(aggregationSize(std::chrono::seconds()));
-    }
-
-    constexpr std::chrono::seconds bucketStartTime(const std::chrono::hours&) const {
-      return bucketStartTime(std::chrono::minutes()) + std::chrono::minutes(aggregationSize(std::chrono::minutes()));
-    }
-
-    constexpr int aggregationSize(const std::chrono::seconds&) const {return 10;}
-    constexpr int aggregationSize(const std::chrono::minutes&) const {return 1;}
-    constexpr int aggregationSize(const std::chrono::hours&) const {return 24;}
-
     // m_history orders keys from past to future, left to right
-    // FIXME: Replace Duration with a FromDuration/ToDuration to get rid of
-    // aggregationSize by way of using duration_cast
-    template <typename Duration>
+    template <typename Duration, int historySize>
     void aggregateBucketClass () {
-      int aggSize(aggregationSize(Duration()));
-      Duration aggDuration(aggSize);
-      Clock::time_point bucketEnd (Clock::now() - bucketStartTime(aggDuration));
-      Clock::time_point bucketStart (bucketEnd - aggDuration);
+      Duration aggDuration(historySize);
+      Clock::time_point bucketStart (Clock::now() - aggDuration);
       Clock::time_point aggregationStart (bucketStart - aggDuration);
       Clock::duration delta;
 
@@ -293,18 +273,16 @@ protected:
       bucketStart = (*m_history.lower_bound (bucketStart)).first;
       aggregationStart = (*m_history.lower_bound (aggregationStart)--).first;
 
-      typename History::iterator start = m_history.upper_bound (aggregationStart);
-      typename History::iterator end = m_history.lower_bound (bucketStart);
-
       // and then how far off we are from our target size
       delta = (bucketStart - aggregationStart) - aggDuration;
 
       std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(delta) << std::endl;
 
-      // Add 500ms to account for samples that might fall between buckets
+      // Account for samples that might fall between buckets
       // FIXME: Shouldn't actually need this, and yet here we are.
-      if (delta <= std::chrono::milliseconds(500) && delta >= std::chrono::milliseconds(-500)) {
-        std::vector<T> oldValues (aggSize);
+      if (delta >= Duration(-1)) {
+        typename History::iterator start = m_history.upper_bound (aggregationStart);
+        typename History::iterator end = m_history.lower_bound (bucketStart);
 
         T val ((*start).second);
         auto i = start;
@@ -322,9 +300,9 @@ protected:
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
         if (name() == "jobq.job_count") {
-          aggregateBucketClass<std::chrono::seconds>();
-          aggregateBucketClass<std::chrono::minutes>();
-          aggregateBucketClass<std::chrono::hours>();
+          aggregateBucketClass<std::chrono::seconds, 10>();
+          aggregateBucketClass<std::chrono::minutes, 60>();
+          aggregateBucketClass<std::chrono::hours, 24>();
         }
 
         return Mete(now, v);
