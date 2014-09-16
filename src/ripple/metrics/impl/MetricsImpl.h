@@ -284,8 +284,7 @@ protected:
     void aggregateBucketClass () {
       int aggSize(aggregationSize(Duration()));
       Duration aggDuration(aggSize);
-      Clock::time_point now (Clock::now());
-      Clock::time_point bucketEnd (now - bucketStartTime(aggDuration));
+      Clock::time_point bucketEnd (Clock::now() - bucketStartTime(aggDuration));
       Clock::time_point bucketStart (bucketEnd - aggDuration);
       Clock::time_point aggregationStart (bucketStart - aggDuration);
       Clock::duration delta;
