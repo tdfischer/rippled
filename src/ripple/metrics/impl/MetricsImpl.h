@@ -296,6 +296,8 @@ protected:
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
         aggregateBucketClass<std::chrono::seconds, 10>(now);
+        aggregateBucketClass<std::chrono::seconds, 30>(now);
+        aggregateBucketClass<std::chrono::seconds, 60>(now);
         aggregateBucketClass<std::chrono::minutes, 60>(now);
         aggregateBucketClass<std::chrono::hours, 24>(now);
 
