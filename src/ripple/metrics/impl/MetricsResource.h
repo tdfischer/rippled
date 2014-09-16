@@ -21,6 +21,8 @@
 #include <ripple/json/json_value.h>
 #include "MetricsImpl.h"
 
+namespace ripple {
+
 namespace metrics {
 
 namespace impl {
@@ -163,5 +165,7 @@ private:
 } //namespace impl
 
 } //namespace metrics
+
+} // namespace ripple
 
 #endif //METRICS_METRICSRESOURCE_H_INCLUDED

@@ -21,6 +21,7 @@
 #include <beast/insight/Collector.h>
 #include <beast/utility/Journal.h>
 
+namespace ripple {
 namespace metrics {
 
 class Metrics
@@ -32,5 +33,6 @@ public:
 };
 
 } // namespace metrics
+} // namespace ripple
 
 #endif //RIPPLE_METRICS_METRICS_H_INCLUDED

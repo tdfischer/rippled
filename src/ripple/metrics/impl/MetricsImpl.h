@@ -28,6 +28,8 @@
 #include <memory>
 #include <forward_list>
 
+namespace ripple {
+
 namespace metrics {
 
 namespace impl {
@@ -463,6 +465,8 @@ MetricsImpl::getMetricStore<MetricsEventImpl>() const {
 } // namespace imp
 
 } // namespace metrics
+
+} // namespace ripple
 
 #endif // METRICS_METRICSIMPL_H_INCLUDED
 

@@ -26,6 +26,8 @@
 
 #include "MetricsResource.h"
 
+namespace ripple {
+
 namespace metrics {
 
 namespace impl {
@@ -364,4 +366,6 @@ Metrics::New (int portNum,
 }
 
 } // namespace metrics
+
+} // namespace ripple
 
