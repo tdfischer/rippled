@@ -253,9 +253,9 @@ protected:
 
     // m_history orders keys from past to future, left to right
     template <typename Duration, int historySize>
-    void aggregateBucketClass () {
+    void aggregateBucketClass (const Clock::time_point& now) {
       Duration aggDuration(historySize);
-      Clock::time_point bucketStart (Clock::now() - aggDuration);
+      Clock::time_point bucketStart (now - aggDuration);
       Clock::time_point aggregationStart (bucketStart - aggDuration);
       Clock::duration delta;
 
@@ -293,9 +293,9 @@ protected:
 
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
-        aggregateBucketClass<std::chrono::seconds, 10>();
-        aggregateBucketClass<std::chrono::minutes, 60>();
-        aggregateBucketClass<std::chrono::hours, 24>();
+        aggregateBucketClass<std::chrono::seconds, 10>(now);
+        aggregateBucketClass<std::chrono::minutes, 60>(now);
+        aggregateBucketClass<std::chrono::hours, 24>(now);
 
         return Mete(now, v);
     }
