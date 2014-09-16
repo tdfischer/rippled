@@ -276,8 +276,6 @@ protected:
       // and then how far off we are from our target size
       delta = (bucketStart - aggregationStart) - aggDuration;
 
-      std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(delta) << std::endl;
-
       // Account for samples that might fall between buckets
       // FIXME: Shouldn't actually need this, and yet here we are.
       if (delta >= Duration(-1)) {
@@ -299,11 +297,9 @@ protected:
 
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
-        if (name() == "jobq.job_count") {
-          aggregateBucketClass<std::chrono::seconds, 10>();
-          aggregateBucketClass<std::chrono::minutes, 60>();
-          aggregateBucketClass<std::chrono::hours, 24>();
-        }
+        aggregateBucketClass<std::chrono::seconds, 10>();
+        aggregateBucketClass<std::chrono::minutes, 60>();
+        aggregateBucketClass<std::chrono::hours, 24>();
 
         return Mete(now, v);
     }
