@@ -279,10 +279,11 @@ protected:
 
         if (std::distance(start, end)) {
           T sum (0);
-          auto i = start;
-          for (i++; i != end && i != m_history.cend() ; i++) {
+          for (auto i = start; i != end && i != m_history.cend() ; i++) {
             sum += (*i).second;
           }
+          // FIXME: This is bad math. We need to divide by the time range, not
+          // number of elements.
           sum = sum / std::distance (start, end);
           m_history.emplace_hint (start, std::make_pair (aggregationStart, sum));
           m_history.erase (start, end);
@@ -295,11 +296,10 @@ protected:
 
         m_history.emplace_hint(m_history.end(), std::make_pair(now, v));
 
-        aggregateBucketClass<std::chrono::seconds, 10>(now);
-        aggregateBucketClass<std::chrono::seconds, 30>(now);
-        aggregateBucketClass<std::chrono::seconds, 60>(now);
-        aggregateBucketClass<std::chrono::minutes, 60>(now);
-        aggregateBucketClass<std::chrono::hours, 24>(now);
+        aggregateBucketClass<std::chrono::milliseconds, 300>(now);
+        aggregateBucketClass<std::chrono::seconds, 300>(now);
+        aggregateBucketClass<std::chrono::minutes, 300>(now);
+        aggregateBucketClass<std::chrono::hours, 240>(now);
 
         return Mete(now, v);
     }
