@@ -200,16 +200,6 @@ protected:
 
 
 template <typename T>
-const T averageAggregator (const T& a, const T& b)
-{
-  return (a + b) / 2;
-}
-
-//FIXME: Doesn't work in the template params
-template <typename T>
-using Aggregator = const T (*)(const std::vector<T>&);
-
-template <typename T>
 class ExposableMetricsElement
     : public MetricsElementBase {
 public:
@@ -282,13 +272,16 @@ protected:
         typename History::iterator start = m_history.upper_bound (aggregationStart);
         typename History::iterator end = m_history.lower_bound (bucketStart);
 
-        T val ((*start).second);
-        auto i = start;
-        for (i++; i != end && i != m_history.end() ; i++) {
-          val = averageAggregator (val, (*i).second);
+        if (std::distance(start, end)) {
+          T sum (0);
+          auto i = start;
+          for (i++; i != end && i != m_history.cend() ; i++) {
+            sum += (*i).second;
+          }
+          sum = sum / std::distance (start, end);
+          m_history.emplace_hint (start, std::make_pair (aggregationStart, sum));
+          m_history.erase (start, end);
         }
-        m_history.emplace_hint (start, std::make_pair (aggregationStart, val));
-        m_history.erase (start, end);
       }
     }
 
