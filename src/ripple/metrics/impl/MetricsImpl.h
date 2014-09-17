@@ -49,7 +49,7 @@ class MetricsHookImpl;
  *
  */
 class MetricsImpl
-    : public Metrics
+    : public beast::insight::Collector
     , public ripple::HTTP::Handler
     , public std::enable_shared_from_this <MetricsImpl>
 {

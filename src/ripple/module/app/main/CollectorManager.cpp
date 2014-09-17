@@ -46,7 +46,7 @@ public:
         }
         else if (server == "metrics")
         {
-            m_collector = metrics::Metrics::New (params ["port"].getIntValue(), journal);
+            m_collector = metrics::make_MetricsCollector (params ["port"].getIntValue(), journal);
         }
         else
         {

@@ -359,8 +359,7 @@ MetricsImpl::onStopped (ripple::HTTP::Server& server)
 } // namespace impl
 
 std::shared_ptr<beast::insight::Collector>
-Metrics::New (int portNum,
-              beast::Journal journal)
+make_MetricsCollector (int portNum, beast::Journal journal)
 {
     return std::make_shared<impl::MetricsImpl> (portNum, journal);
 }

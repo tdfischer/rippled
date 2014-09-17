@@ -24,13 +24,8 @@
 namespace ripple {
 namespace metrics {
 
-class Metrics
-  : public beast::insight::Collector
-{
-public:
-  static std::shared_ptr <beast::insight::Collector>
-    New (int portNum, beast::Journal journal);
-};
+std::shared_ptr <beast::insight::Collector>
+  make_MetricsCollector (int portNum, beast::Journal journal);
 
 } // namespace metrics
 } // namespace ripple
