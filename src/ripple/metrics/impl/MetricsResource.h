@@ -20,8 +20,9 @@
 #ifndef METRICS_METRICSRESOURCE_H_INCLUDED
 #define METRICS_METRICSRESOURCE_H_INCLUDED
 
-#include <ripple/json/json_value.h>
 #include "MetricsImpl.h"
+
+#include <ripple/json/json_value.h>
 
 namespace ripple {
 

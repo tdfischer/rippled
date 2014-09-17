@@ -22,10 +22,11 @@
 
 #include "../Metrics.h"
 
-#include <beast/insight/HookImpl.h>
-#include <beast/insight/CounterImpl.h>
 #include <ripple/http/Server.h>
 #include <ripple/common/RippleSSLContext.h>
+
+#include <beast/insight/HookImpl.h>
+#include <beast/insight/CounterImpl.h>
 
 #include <memory>
 #include <forward_list>

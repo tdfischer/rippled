@@ -18,6 +18,7 @@
 //==============================================================================
 
 #include "MetricsImpl.h"
+#include "MetricsResource.h"
 
 #include <ripple/http/Session.h>
 #include <ripple/json/json_value.h>
@@ -25,8 +26,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/compare.hpp>
-
-#include "MetricsResource.h"
 
 namespace ripple {
 
