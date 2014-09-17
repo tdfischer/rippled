@@ -1,3 +1,4 @@
+//------------------------------------------------------------------------------
 /*
     This file is part of rippled: https://github.com/ripple/rippled
     Copyright (c) 2012-2014 Ripple Labs Inc.
@@ -14,6 +15,7 @@
     ACTION  OF  CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
+//==============================================================================
 
 #ifndef METRICS_METRICSIMPL_H_INCLUDED
 #define METRICS_METRICSIMPL_H_INCLUDED
