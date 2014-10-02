@@ -144,7 +144,7 @@ public:
      * @see: getMetricStore()
      */
     template <class T> void add(T* elem) {
-        std::unique_lock<std::mutex> lock(m_metricLock);
+        std::lock_guard <std::mutex> lock(m_metricLock);
         getMetricStore<T> ().push_front (elem);
     }
 
@@ -154,7 +154,7 @@ public:
      * @see: getMetricStore()
      */
     template <class T> void remove(T* elem) {
-        std::unique_lock<std::mutex> lock(m_metricLock);
+        std::lock_guard <std::mutex> lock(m_metricLock);
         getMetricStore<T> ().remove (elem);
     }
 

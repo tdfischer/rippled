@@ -174,12 +174,6 @@ MetricsGaugeImpl::set (value_type v)
     addValue (m_histories, v);
 }
 
-MetricsGaugeImpl&
-MetricsGaugeImpl::operator= (MetricsGaugeImpl const&)
-{
-    assert (false);
-}
-
 void
 MetricsGaugeImpl::increment (difference_type v)
 {
