@@ -79,6 +79,19 @@ class ApplicationImp
     , public beast::LeakChecked <ApplicationImp>
 {
 private:
+    beast::insight::Hook m_metricHook;
+    beast::insight::Gauge m_peerGauge;
+    beast::insight::Gauge m_ledgerGauge;
+    void collect() {
+      m_peerGauge.set (m_peers->size());
+      Ledger::pointer lpClosed = m_ledgerMaster->getValidatedLedger();
+      if (!lpClosed)
+        lpClosed = m_ledgerMaster->getClosedLedger();
+
+      if (lpClosed)
+        m_ledgerGauge.set (lpClosed->getLedgerSeq());
+    }
+
     class io_latency_sampler
     {
     private:
@@ -743,6 +756,11 @@ public:
             *m_siteFiles, getConfig ().getModuleDatabasePath (),
                 *m_resolver, m_mainIoPool, m_peerSSLContext->get ());
         add (*m_peers); // add to Stoppable
+
+        m_metricHook = m_collectorManager->collector()->make_hook (std::bind (
+              &ApplicationImp::collect, this));
+        m_peerGauge = m_collectorManager->collector()->make_gauge ("peers");
+        m_ledgerGauge = m_collectorManager->collector()->make_gauge ("ledger");
 
         // SSL context used for WebSocket connections.
         if (getConfig ().WEBSOCKET_SECURE)
