@@ -64,8 +64,8 @@ public:
 
         if (!info.special ())
         {
-            dequeue = m_collector->make_event (info.name () + "_q");
-            execute = m_collector->make_event (info.name ());
+            dequeue = m_collector->make_event (info.name () + ".delay");
+            execute = m_collector->make_event (info.name () + ".execute");
         }
     }
 
