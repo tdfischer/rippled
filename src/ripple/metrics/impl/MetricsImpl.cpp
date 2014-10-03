@@ -369,6 +369,7 @@ MetricsImpl::onRequest (ripple::HTTP::Session& session)
         response.status(200);
         response.headers.append("Content-Type", "application/json");
         session.write (to_string (response));
+        session.write (to_string (response.body));
     } else {
         auto contents = getFileContents(uri);
 
