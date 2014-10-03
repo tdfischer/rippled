@@ -126,7 +126,7 @@ private:
      */
     std::string createResponse (int code, std::string const& body);
 
-    const std::pair<std::vector<unsigned char>, size_t> getFileContents(const std::string &uri);
+    const std::pair<const char*, std::uint64_t> getFileContents(const std::string &uri);
 
 public:
     /**

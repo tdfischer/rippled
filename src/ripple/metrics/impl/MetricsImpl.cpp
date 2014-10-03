@@ -368,25 +368,34 @@ MetricsImpl::onRequest (ripple::HTTP::Session& session)
         response.reason("OK");
         response.status(200);
         response.headers.append("Content-Type", "application/json");
+        session.write (to_string (response));
     } else {
         auto contents = getFileContents(uri);
 
-        //FIXME: {{}, 0} is also a valid file
-        if (contents.second == 0) {
+        if (contents.first == nullptr) {
           contents = getFileContents(uri+"index.html");
         }
 
-        if (contents.second == 0) {
+
+        if (contents.first == nullptr) {
           response.status (404);
           response.reason ("Not Found");
         } else {
+          assert(contents.first != nullptr && contents.second > 0);
           response.status (200);
-          response.body.write (contents.first.data(), contents.first.size());
+        }
+
+        session.write (to_string (response));
+
+        // Excuse the weird flow of this function, but most everything in
+        // response.body assumes buffer sizes that can be represented in 32 bits.
+        if (contents.first != nullptr) {
+          for(uint64_t i = 0; i < contents.second; i = std::min(contents.second, i+2048)) {
+            std::cout << "Writing " << i << "/" << contents.second << std::endl;
+            session.write (&contents.first[i], std::min((uint64_t)2048, contents.second - i));
+          }
         }
     }
-
-    session.write (to_string (response));
-    session.write (to_string (response.body));
 }
 
 void
@@ -400,15 +409,15 @@ MetricsImpl::onStopped (ripple::HTTP::Server& server)
 {
 }
 
-const std::pair<std::vector<unsigned char>, size_t>
+const std::pair<const char*, std::uint64_t>
 MetricsImpl::getFileContents(const std::string &uri)
 {
     auto idx = contents::contents.find(uri);
     if (idx == contents::contents.cend())
       idx = contents::contents.find(uri+"index.html");
     if (idx == contents::contents.cend())
-      return {{}, 0};
-    return idx->second;
+      return {nullptr, 0};
+    return std::make_pair(idx->second.contents, idx->second.size);
 }
 
 ExposableMetricsElement::ExposableMetricsElement (const std::string& name,
