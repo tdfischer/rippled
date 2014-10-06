@@ -77,27 +77,6 @@ metrics_store_cast (std::forward_list<T*> const& lst)
     return std::forward_list<ExposableMetricsElement*> (lst.begin(), lst.end());
 }
 
-//FIXME: This should be a private method, but probably needs PIMPL to hide use
-//of MetricsResourceListBase from MetricsResource.h
-static
-std::unique_ptr<MetricsResourceList>
-resourceList (MetricsImpl* self, std::string const& sensorClass)
-{
-    if (sensorClass == "meter")
-        return std::make_unique<MetricsResourceList>(
-            metrics_store_cast<MetricsMeterImpl>(self->getMetricStore<MetricsMeterImpl>()));
-    else if (sensorClass == "gauge")
-        return std::make_unique<MetricsResourceList>(
-            metrics_store_cast<MetricsGaugeImpl>(self->getMetricStore<MetricsGaugeImpl>()));
-    else if (sensorClass == "event")
-        return std::make_unique<MetricsResourceList>(
-            metrics_store_cast<MetricsEventImpl>(self->getMetricStore<MetricsEventImpl>()));
-    else if (sensorClass == "counter")
-        return std::make_unique<MetricsResourceList>(
-            metrics_store_cast<MetricsCounterImpl>(self->getMetricStore<MetricsCounterImpl>()));
-    return nullptr; // FIXME: raise exception
-}
-
 MetricsCounterImpl::MetricsCounterImpl (std::string const& name,
                                         MetricsImpl::Ptr const& impl)
     : ExposableMetricsElement (name, impl)
@@ -261,6 +240,30 @@ MetricsImpl::~MetricsImpl ()
     m_server.stop ();
 }
 
+void
+MetricsImpl::add(ExposableMetricsElement* elem) {
+    std::unique_lock<std::mutex> lock(m_metricLock);
+    m_exposedMetrics.push_front (elem);
+}
+
+void
+MetricsImpl::add (MetricsHookImpl* evt) {
+    std::unique_lock<std::mutex> lock(m_metricLock);
+    m_hooks.push_front (evt);
+}
+
+void
+MetricsImpl::remove(ExposableMetricsElement* elem) {
+    std::unique_lock<std::mutex> lock(m_metricLock);
+    m_exposedMetrics.remove(elem);
+}
+
+void
+MetricsImpl::remove(MetricsHookImpl* evt) {
+    std::unique_lock<std::mutex> lock(m_metricLock);
+    m_hooks.remove(evt);
+}
+
 beast::insight::Hook
 MetricsImpl::make_hook (beast::insight::HookImpl::HandlerType const& type)
 {
@@ -336,36 +339,28 @@ MetricsImpl::onRequest (ripple::HTTP::Session& session)
 
     if (tokens[0] == "metric") { // "/metric/"
         //FIXME: Should redirect to URLs that end with /
-        if (tokens.size() >= 2 && tokens[1] != "") { // "/metric/meter/"
-            if (tokens.size() >= 3 && tokens[2] != "") { // "/metric/meter/foo"
-                ret = Json::Value (Json::objectValue);
-                std::string sensorClass = tokens[1];
-                std::string sensorName = tokens[2];
-                auto list = resourceList (this, sensorClass);
-                auto resource = list->getNamedResource (sensorName);
-                clock_type::time_point start (
-                    readTimeParam (params, "start", clock_type::time_point ())
-                );
+        if (tokens.size() >= 2 && tokens[1] != "") { // "/metric/foo/"
+            ret = Json::Value (Json::objectValue);
+            std::string sensorClass = tokens[1];
+            std::string sensorName = tokens[2];
+            auto list = MetricsResourceList (m_exposedMetrics);
+            auto resource = list.getNamedResource (sensorName);
+            clock_type::time_point start (
+                readTimeParam (params, "start", clock_type::time_point ())
+            );
 
-                //FIXME: shouldn't be hardcoded
-                resolution res = resolutions[0];
+            //FIXME: shouldn't be hardcoded
+            resolution res = resolutions[0];
 
-                if (resource)
-                 ret = resource->history (start, res);
-                else
-                  std::cout << "404!" << std::endl;
-            } else {
-                ret = Json::Value (Json::objectValue);
-                std::string sensorClass = tokens[1];
-                auto list = resourceList (this, sensorClass);
-                ret = list->list ();
-            }
+            if (resource)
+             ret = resource->history (start, res);
+            else
+              std::cout << "404!" << std::endl;
         } else {
-            ret = Json::Value (Json::arrayValue);
-            ret.append (Json::Value ("meter"));
-            ret.append (Json::Value ("gauge"));
-            ret.append (Json::Value ("event"));
-            ret.append (Json::Value ("counter"));
+            ret = Json::Value (Json::objectValue);
+            std::string sensorClass = tokens[1];
+            auto list = MetricsResourceList (m_exposedMetrics);
+            ret = list.list ();
         }
         std::string buf = writer.write (ret);
         response.body.write (buf.data(), buf.size());

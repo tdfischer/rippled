@@ -38,6 +38,7 @@ namespace ripple {
 namespace metrics {
 namespace impl {
 
+class ExposableMetricsElement;
 class MetricsImpl;
 class MetricsMeterImpl;
 class MetricsGaugeImpl;
@@ -60,14 +61,6 @@ class MetricsImpl
 public:
     using Ptr = std::shared_ptr<MetricsImpl>;
 
-    /**
-     * getMetricStore: Gets the forward_list that contains metrics of type @T
-     */
-    template <class T> const std::forward_list<T*>
-        getMetricStore () const;
-    template <class T> std::forward_list<T*>&
-        getMetricStore ();
-
 private:
     /**
      * m_server: The HTTP server used
@@ -77,16 +70,10 @@ private:
     std::unique_ptr<ripple::RippleSSLContext> m_context;
 
     /**
-     * m_meters: List of MetricsMeterImpl created by make_meter()
-     * m_gauges: List of MetricsGaugeImpl created by make_gaugek()
      * m_events: List of MetricsEventImpl created by make_event()
-     * m_counters: List of MetricsCounterImpl created by make_counter()
-     * m_hooks: List of MetricsHookImpl created by make_hook()
+     * m_exposedMetrics: List of ExposableMetricsElement created by make_*()
      */
-    std::forward_list<MetricsMeterImpl*> m_meters;
-    std::forward_list<MetricsGaugeImpl*> m_gauges;
-    std::forward_list<MetricsEventImpl*> m_events;
-    std::forward_list<MetricsCounterImpl*> m_counters;
+    std::forward_list<ExposableMetricsElement*> m_exposedMetrics;
     std::forward_list<MetricsHookImpl*> m_hooks;
     std::mutex m_metricLock;
 
@@ -115,20 +102,15 @@ public:
      *
      * @see: getMetricStore()
      */
-    template <class T> void add(T* elem) {
-        std::unique_lock<std::mutex> lock(m_metricLock);
-        getMetricStore<T> ().push_front (elem);
-    }
+    void add(ExposableMetricsElement* elem);
+    void add (MetricsHookImpl* evt);
 
     /**
-     * remove: Removes the given metric from the metric-specific storage
+     * remove: Removes the given metric
      *
-     * @see: getMetricStore()
      */
-    template <class T> void remove(T* elem) {
-        std::unique_lock<std::mutex> lock(m_metricLock);
-        getMetricStore<T> ().remove (elem);
-    }
+    void remove(ExposableMetricsElement* elem);
+    void remove(MetricsHookImpl* evt);
 
     // Internal callbacks for @m_server
     void onAccept (ripple::HTTP::Session& session) override;
@@ -281,86 +263,6 @@ private:
         operator= (MetricsMeterImpl const&);
     value_type m_last;
 };
-
-/**
- * getMetricStore<MetricsMeterImpl>: Returns the storage for Meter metrics
- *
- * @see: getMetricStore()
- */
-template <>
-std::forward_list<MetricsMeterImpl*>&
-MetricsImpl::getMetricStore<MetricsMeterImpl>() {
-    return m_meters;
-}
-template <>
-const std::forward_list<MetricsMeterImpl*>
-MetricsImpl::getMetricStore<MetricsMeterImpl>() const {
-    return m_meters;
-}
-
-/**
- * getMetricStore<MetricsGaugeImpl>: Returns the storage for Gauge metrics
- *
- * @see: getMetricStore()
- */
-template <>
-std::forward_list<MetricsGaugeImpl*>&
-MetricsImpl::getMetricStore<MetricsGaugeImpl>() {
-    return m_gauges;
-}
-template <>
-const std::forward_list<MetricsGaugeImpl*>
-MetricsImpl::getMetricStore<MetricsGaugeImpl>() const {
-    return m_gauges;
-}
-
-/**
- * getMetricStore<MetricsCounterImpl>: Returns the storage for Counter metrics
- *
- * @see: getMetricStore()
- */
-template <>
-std::forward_list<MetricsCounterImpl*>&
-MetricsImpl::getMetricStore<MetricsCounterImpl>() {
-    return m_counters;
-}
-template <>
-const std::forward_list<MetricsCounterImpl*>
-MetricsImpl::getMetricStore<MetricsCounterImpl>() const {
-    return m_counters;
-}
-
-/**
- * getMetricStore<MetricsHookImpl>: Returns the storage for Hook metrics
- *
- * @see: getMetricStore()
- */
-template <>
-std::forward_list<MetricsHookImpl*>&
-MetricsImpl::getMetricStore<MetricsHookImpl>() {
-    return m_hooks;
-}
-template <>
-const std::forward_list<MetricsHookImpl*>
-MetricsImpl::getMetricStore<MetricsHookImpl>() const {
-    return m_hooks;
-}
-
-/**
- * getMetricStore<MetricsEventImpl>: Returns the storage for Event metrics
- *
- * @see: getMetricStore()
- */
-template <>
-std::forward_list<MetricsEventImpl*>&
-MetricsImpl::getMetricStore<MetricsEventImpl>() {
-    return m_events;
-}
-template <>
-const std::forward_list<MetricsEventImpl*>
-MetricsImpl::getMetricStore<MetricsEventImpl>() const {
-    return m_events;
-}
 
 } // namespace imp
 } // namespace metrics
