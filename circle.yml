@@ -50,3 +50,8 @@ deployment:
       - docker push ripple/rippled:$CIRCLE_SHA1
       - docker push ripple/rippled:$CIRCLE_BRANCH
       - docker push ripple/rippled:latest
+  deb:
+    branch: debian
+    commands:
+      - sudo apt-get install quilt git git-buildpackage dupload
+      - gbp buildpackage --git-ignore-new --git-debian-branch=ubuntu/trusty --git-tag --git-debian-tag='ubuntu/%(version)s'
