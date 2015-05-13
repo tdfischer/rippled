@@ -10,8 +10,6 @@
 # Description:       starts rippled using start-stop-daemon
 ### END INIT INFO
 
-# set -e
-
 NAME=rippled
 USER="rippled"
 GROUP="rippled"
@@ -22,100 +20,56 @@ NET_OPTS="--net $DAEMON_OPTS"
 LOGDIR="/var/log/rippled"
 STOP_LOOPS=30
 
-ulimit -c unlimited
-
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+. /lib/lsb/init-functions
 
 # Read configuration variable file if one exists.  Note that this can
 # potentially change the values of variables defined earlier in this script.
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
-# Test to see if rippled is running.  Returns the exit status of ps if the
-# pidfile exists, a static '1' if it doesn't.
-is_running() {
-	if [[ -e $PIDFILE ]]; then
-		PID=$(<$PIDFILE)
-		PIDLIST="$PID $(ps --no-headers -o pid --ppid=$PID | xargs echo)"
-		ps $PIDLIST >/dev/null 2>&1
-		return $?
-	else
-		return 1
-	fi
-}
-
 # Stop rippled.
 stop() {
+  PID=$(pidofproc -p $PIDFILE $DAEMON)
+  if [ ! $? -eq 0 ]; then
+    exit 0
+  fi
 	echo "Stopping daemon: "$NAME
 
-        # See if rippled is actually running.
-	PID=$(<$PIDFILE)
-	PIDLIST="$PID $(ps --no-headers -o pid --ppid=$PID 2>/dev/null | xargs echo)"
-	ps $PIDLIST >/dev/null 2>&1
-	ret=$?
-	if [[ $ret -ne 0 ]]; then
-                # Delete a stale pidfile.
-		rm -f $PIDFILE
-		exit 0
-	fi		
+  killproc -p $PIDFILE $DAEMON
 
-        # Ask rippled nicely to stop itself.
-	$DAEMON $DAEMON_OPTS stop
-
-        # Wait for rippled to clean up after itself and shut down.
+  # Wait for rippled to shut down.
 	loop=1
 	while [[ $loop -le ${STOP_LOOPS:-0} ]]; do
-		ps $PIDLIST >/dev/null 2>&1 || break 1
+    PID=$(pidofproc -p $PIDFILE $DAEMON)
+    if [ ! $? -eq 0 ];then
+      break
+    fi
 		((loop++))
 		echo -n "."
 		sleep 1
 	done
-	echo
 
-        # Verify that rippled did, in fact, shut itself down.
-	ps $PIDLIST >/dev/null 2>&1
-	ret=$?
-	if [[ $ret -eq 0 ]]; then
+  PID=$(pidofproc -p $PIDFILE $DAEMON)
+  if [ $? -eq 0 ]; then
+    killproc -p $PIDFILE $DAEMON KILL
+  fi
 
-                # rippled didn't shut itself down.  Kill it.
-		echo "Failed to die. Killing aggressively."
-		pkill -9 -f "$NAME $NET_OPTS"
-		sleep 3
-		ps $PIDLIST >/dev/null 2>&1
-		ret=$?
-		if [[ $ret -eq 0 ]]; then
-                        # Uh-oh.
-			echo "Could not kill. Exiting."
-			exit 2
-		fi 
-	fi
-
-        # Delete the pidfile.
-	rm -f $PIDFILE
 	echo "."
 }
 
 # Start rippled.
 start() {
-	if is_running; then
-		echo "Cannot start daemon because it is already running"
-		exit 2
-	fi
+  PID=$(pidofproc -p $PIDFILE $DAEMON)
+  if [ $? -eq 0 ];then
+    exit 0
+  fi
 	echo "Starting daemon: "$NAME
-
-        # If a new version of rippled has been installed from a .deb package,
-        # back up the older version in case it's needed later.
-	if [[ -e ${DAEMON}.dpkg-old ]]; then
-		echo "Found an old binary from a previous installation. Moving it to ${DAEMON}.prev"
-		[[ -e ${DAEMON}.prev ]] && rm -f ${DAEMON}.prev
-		mv ${DAEMON}.dpkg-old ${DAEMON}.prev
-	fi
 
         # Actually start rippled.
   mkdir -p $LOGDIR
   chown -R $USER:$GROUP $LOGDIR
+
 	start-stop-daemon --start --quiet --background -m --pidfile $PIDFILE \
-            --exec $DAEMON --chuid $USER --group $GROUP -- $NET_OPTS \
-            &>$LOGDIR/rippled.log
+            --exec $DAEMON --chuid $USER --group $GROUP -- $NET_OPTS
 	echo "."
 }
 
