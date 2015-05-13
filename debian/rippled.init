@@ -32,9 +32,9 @@ stop() {
   if [ ! $? -eq 0 ]; then
     exit 0
   fi
-	echo "Stopping daemon: "$NAME
+	echo -n "Stopping daemon: "$NAME
 
-  killproc -p $PIDFILE $DAEMON
+  $DAEMON $DAEMON_OPTS stop
 
   # Wait for rippled to shut down.
 	loop=1
