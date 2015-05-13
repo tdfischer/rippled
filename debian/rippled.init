@@ -62,7 +62,7 @@ start() {
   if [ $? -eq 0 ];then
     exit 0
   fi
-	echo "Starting daemon: "$NAME
+	echo -n "Starting daemon: "$NAME
 
         # Actually start rippled.
   mkdir -p $LOGDIR
@@ -96,25 +96,21 @@ case "$1" in
         else
                 echo "$NAME not running."
         fi
-        echo "."
     ;;
 
     fetch)
         echo "$NAME ledger fetching info:"
         $DAEMON $DAEMON_OPTS fetch_info
-        echo "."
         ;;
 
     uptime)
         echo "$NAME uptime:"
         $DAEMON $DAEMON_OPTS get_counts
-        echo "."
         ;;
 
     startconfig)
         echo "$NAME is being started with the following command line:"
         echo "$DAEMON $NET_OPTS"
-        echo "."
         ;;
 
     command)
@@ -124,12 +120,10 @@ case "$1" in
 
         # Pass the remainder of the argument vector to rippled.
         $DAEMON $DAEMON_OPTS "$@"
-        echo "."
         ;;
 
     test)
         $DAEMON $DAEMON_OPTS ping
-        echo "."
         ;;
 
     # Undocumented command that deletes rippled's databases.
