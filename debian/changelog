@@ -1,3 +1,10 @@
+rippled (0.28.0-5) trusty; urgency=medium
+
+  [ Torrie Fischer ]
+  * Update init script to be LSB compliant
+
+ -- Torrie Fischer <torrie@ripple.com>  Wed, 13 May 2015 22:14:47 +0000
+
 rippled (0.28.0-3) trusty; urgency=medium
 
   [ Torrie Fischer ]
