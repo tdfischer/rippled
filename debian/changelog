@@ -1,29 +1,11 @@
 rippled (0.28.0-7) trusty; urgency=medium
 
   [ Torrie Fischer ]
-  * Brute force kill rippled
-
-rippled (0.28.0-5) trusty; urgency=medium
-
-  [ Torrie Fischer ]
   * Update init script to be LSB compliant
-
- -- Torrie Fischer <torrie@ripple.com>  Wed, 13 May 2015 22:14:47 +0000
-
-rippled (0.28.0-3) trusty; urgency=medium
-
-  [ Torrie Fischer ]
-  * Add quick script to build things
+  * Brute force kill rippled
   * Add old preinst script
 
- -- Torrie Fischer <torrie@ripple.com>  Fri, 01 May 2015 22:14:47 +0000
-
-rippled (0.28.0-2) trusty; urgency=medium
-
-  [ Torrie Fischer ]
-  * Add makefile patch
-
- -- Torrie Fischer <torrie@ripple.com>  Thu, 30 Apr 2015 21:11:17 +0000
+ -- Torrie Fischer <torrie@ripple.com>  Wed, 13 May 2015 22:14:47 +0000
 
 rippled (0.28.0-1) trusty; urgency=low
 
