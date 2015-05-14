@@ -1,3 +1,8 @@
+rippled (0.28.0-7) trusty; urgency=medium
+
+  [ Torrie Fischer ]
+  * Brute force kill rippled
+
 rippled (0.28.0-5) trusty; urgency=medium
 
   [ Torrie Fischer ]
