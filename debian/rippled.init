@@ -34,7 +34,12 @@ stop() {
   fi
 	echo -n "Stopping daemon: "$NAME
 
-  $DAEMON $DAEMON_OPTS stop
+  $DAEMON $DAEMON_OPTS stop 2>/dev/null >/dev/null
+
+  if [ ! $? -eq 0 ];then
+    # Stop command failed for some reason. Kill it by hand.
+    killproc -p $PIDFILE $DAEMON KILL
+  fi
 
   # Wait for rippled to shut down.
 	loop=1
@@ -48,10 +53,9 @@ stop() {
 		sleep 1
 	done
 
-  PID=$(pidofproc -p $PIDFILE $DAEMON)
-  if [ $? -eq 0 ]; then
-    killproc -p $PIDFILE $DAEMON KILL
-  fi
+  pkill -9 -f $DAEMON
+
+  rm -f $PIDFILE
 
 	echo "."
 }
