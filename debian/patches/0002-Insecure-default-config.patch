@@ -1,0 +1,22 @@
+Index: rippled/doc/rippled-example.cfg
+===================================================================
+--- rippled.orig/doc/rippled-example.cfg	2015-05-15 06:05:01.586351218 +0000
++++ rippled/doc/rippled-example.cfg	2015-05-15 06:05:16.791391574 +0000
+@@ -827,7 +827,7 @@
+ port = 5005
+ ip = 127.0.0.1
+ admin = 127.0.0.1
+-protocol = https
++protocol = http
+ 
+ [port_peer]
+ port = 51235
+@@ -838,7 +838,7 @@
+ port = 6006
+ ip = 127.0.0.1
+ admin = 127.0.0.1
+-protocol = wss
++protocol = ws
+ 
+ #[port_ws_public]
+ #port = 5005
