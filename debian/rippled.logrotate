@@ -1,0 +1,7 @@
+/var/log/rippled/debug.log {
+    copytruncate
+    compress
+    weekly
+    size 200M
+    missingok
+}
