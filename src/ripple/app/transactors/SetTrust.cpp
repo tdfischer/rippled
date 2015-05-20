@@ -82,7 +82,7 @@ public:
 
         // Check if destination makes sense.
         auto const& issuer = saLimitAmount.getIssuer ();
-        
+
         if (!issuer || issuer == noAccount())
         {
             if (m_journal.trace) m_journal.trace <<
@@ -153,7 +153,7 @@ public:
             // lines exist now, why not remove this code and simply
             // return an error?
             SLE::pointer selDelete (
-                mEngine->entryCache (ltRIPPLE_STATE,
+                mEngine->view().entryCache (ltRIPPLE_STATE,
                     getRippleStateIndex (
                         mTxnAccountID, uDstAccountID, currency)));
 
@@ -173,7 +173,7 @@ public:
             }
         }
 
-        SLE::pointer sleDst (mEngine->entryCache (
+        SLE::pointer sleDst (mEngine->view().entryCache (
             ltACCOUNT_ROOT, getAccountRootIndex (uDstAccountID)));
 
         if (!sleDst)
@@ -186,7 +186,7 @@ public:
         STAmount saLimitAllow = saLimitAmount;
         saLimitAllow.setIssuer (mTxnAccountID);
 
-        SLE::pointer sleRippleState (mEngine->entryCache (ltRIPPLE_STATE,
+        SLE::pointer sleRippleState (mEngine->view().entryCache (ltRIPPLE_STATE,
             getRippleStateIndex (mTxnAccountID, uDstAccountID, currency)));
 
         if (sleRippleState)
@@ -379,8 +379,8 @@ public:
 
                 terResult = mEngine->view ().trustDelete (sleRippleState, uLowAccountID, uHighAccountID);
             }
-            else if (bReserveIncrease
-                     && mPriorBalance.getNValue () < uReserveCreate) // Reserve is not scaled by load.
+            // Reserve is not scaled by load.
+            else if (bReserveIncrease && mPriorBalance < uReserveCreate)
             {
                 m_journal.trace <<
                     "Delay transaction: Insufficent reserve to add trust line.";
@@ -391,7 +391,7 @@ public:
             }
             else
             {
-                mEngine->entryModify (sleRippleState);
+                mEngine->view().entryModify (sleRippleState);
 
                 m_journal.trace << "Modify ripple line";
             }
@@ -405,7 +405,7 @@ public:
                 "Redundant: Setting non-existent ripple line to defaults.";
             return tecNO_LINE_REDUNDANT;
         }
-        else if (mPriorBalance.getNValue () < uReserveCreate) // Reserve is not scaled by load.
+        else if (mPriorBalance < uReserveCreate) // Reserve is not scaled by load.
         {
             m_journal.trace <<
                 "Delay transaction: Line does not exist. Insufficent reserve to create line.";

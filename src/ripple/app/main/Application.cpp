@@ -289,7 +289,6 @@ public:
     beast::DeadlineTimer m_sweepTimer;
     beast::DeadlineTimer m_entropyTimer;
 
-    std::unique_ptr <DatabaseCon> mRpcDB;
     std::unique_ptr <DatabaseCon> mTxnDB;
     std::unique_ptr <DatabaseCon> mLedgerDB;
     std::unique_ptr <DatabaseCon> mWalletDB;
@@ -415,7 +414,7 @@ public:
 
         , m_entropyTimer (this)
 
-        , m_signals(get_io_service(), SIGINT)
+        , m_signals (get_io_service())
 
         , m_resolver (ResolverAsio::New (get_io_service(), m_logs.journal("Resolver")))
 
@@ -607,11 +606,6 @@ public:
         return m_sntpClient->getOffset (offset);
     }
 
-    DatabaseCon& getRpcDB ()
-    {
-        assert (mRpcDB.get() != nullptr);
-        return *mRpcDB;
-    }
     DatabaseCon& getTxnDB ()
     {
         assert (mTxnDB.get() != nullptr);
@@ -637,14 +631,11 @@ public:
     //--------------------------------------------------------------------------
     bool initSqliteDbs ()
     {
-        assert (mRpcDB.get () == nullptr);
         assert (mTxnDB.get () == nullptr);
         assert (mLedgerDB.get () == nullptr);
         assert (mWalletDB.get () == nullptr);
 
         DatabaseCon::Setup setup = setup_DatabaseCon (getConfig());
-        mRpcDB = std::make_unique <DatabaseCon> (setup, "rpc.db", RpcDBInit,
-                RpcDBCount);
         mTxnDB = std::make_unique <DatabaseCon> (setup, "transaction.db",
                 TxnDBInit, TxnDBCount);
         mLedgerDB = std::make_unique <DatabaseCon> (setup, "ledger.db",
@@ -653,7 +644,6 @@ public:
                 WalletDBInit, WalletDBCount);
 
         return
-            mRpcDB.get() != nullptr &&
             mTxnDB.get () != nullptr &&
             mLedgerDB.get () != nullptr &&
             mWalletDB.get () != nullptr;
@@ -687,9 +677,11 @@ public:
         // VFALCO NOTE: 0 means use heuristics to determine the thread count.
         m_jobQueue->setThreadCount (0, getConfig ().RUN_STANDALONE);
 
+        // We want to intercept and wait for CTRL-C to terminate the process
+        m_signals.add (SIGINT);
+
         m_signals.async_wait(std::bind(&ApplicationImp::signalled, this,
-                                      std::placeholders::_1,
-                                      std::placeholders::_2));
+            std::placeholders::_1, std::placeholders::_2));
 
         assert (mTxnDB == nullptr);
 
@@ -1413,7 +1405,7 @@ static void addTxnSeqField ()
     Blob txnMeta;
 
     soci::statement st =
-            (session.prepare << 
+            (session.prepare <<
              "SELECT TransID, TxnMeta FROM Transactions;",
              soci::into(strTransId),
              soci::into(sociTxnMetaBlob, tmi));

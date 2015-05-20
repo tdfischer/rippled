@@ -261,30 +261,6 @@ Ledger::~Ledger ()
     }
 }
 
-bool Ledger::enforceFreeze () const
-{
-
-    // Temporarily, the freze code can run in either
-    // enforcing mode or non-enforcing mode. In
-    // non-enforcing mode, freeze flags can be
-    // manipulated, but freezing is not actually
-    // enforced. Once freeze enforcing has been
-    // enabled, this function can be removed
-
-    // Let freeze enforcement be tested
-    // If you wish to test non-enforcing mode,
-    // you must remove this line
-    if (getConfig().RUN_STANDALONE)
-        return true;
-
-    // Freeze enforcing date is September 15, 2014
-    static std::uint32_t const enforceDate =
-        iToSeconds (boost::posix_time::ptime (
-            boost::gregorian::date (2014, boost::gregorian::Sep, 15)));
-
-    return mParentCloseTime >= enforceDate;
-}
-
 void Ledger::setImmutable ()
 {
     // Updates the hash and marks the ledger and its maps immutable
@@ -766,7 +742,7 @@ bool Ledger::saveValidatedLedger (bool current)
                     << "Transaction in ledger " << mLedgerSeq
                     << " affects no accounts";
 
-            *db << 
+            *db <<
                (STTx::getMetaSQLInsertReplaceHeader () +
                 vt.second->getTxn ()->getMetaSQL (
                     getLedgerSeq (), vt.second->getEscMeta ()) + ";");
@@ -953,7 +929,7 @@ bool Ledger::getHashesByIndex (
     auto db = getApp().getLedgerDB ().checkoutDb ();
 
     boost::optional <std::string> lhO, phO;
-    
+
     *db << "SELECT LedgerHash,PrevHash FROM Ledgers "
             "INDEXED BY SeqLedger Where LedgerSeq = :ls;",
             soci::into (lhO),
@@ -1024,7 +1000,7 @@ Ledger::pointer Ledger::getLastFullLedger ()
 
         if (!ledger)
             return ledger;
-    
+
         ledger->setClosed ();
 
         if (getApp().getOPs ().haveLedger (ledgerSeq))
@@ -1298,7 +1274,7 @@ void Ledger::visitStateItems (std::function<void (SLE::ref)> function) const
     {
         if (mHash.isNonZero ())
         {
-            getApp().getInboundLedgers().findCreate(
+            getApp().getInboundLedgers().acquire(
                 mHash, mLedgerSeq, InboundLedger::fcGENERIC);
         }
         throw;
@@ -1410,11 +1386,6 @@ SLE::pointer Ledger::getDirNode (uint256 const& uNodeIndex) const
     return getASNodeI (uNodeIndex, ltDIR_NODE);
 }
 
-SLE::pointer Ledger::getGenerator (Account const& uGeneratorID) const
-{
-    return getASNodeI (getGeneratorIndex (uGeneratorID), ltGENERATOR_MAP);
-}
-
 SLE::pointer
 Ledger::getOffer (uint256 const& uIndex) const
 {
@@ -1489,7 +1460,7 @@ uint256 Ledger::getLedgerHash (std::uint32_t ledgerIndex)
 
     if ((ledgerIndex & 0xff) != 0)
     {
-        WriteLog (lsWARNING, Ledger) << "Can't get seq " << ledgerIndex
+        WriteLog (lsDEBUG, Ledger) << "Can't get seq " << ledgerIndex
                                      << " from " << mLedgerSeq << " past";
         return uint256 ();
     }

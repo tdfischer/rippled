@@ -34,7 +34,7 @@ public:
         s.add (ser);
 
         SerialIter sit (ser);
-        return STAmount::deserialize (sit);
+        return STAmount(sit, sfGeneric);
     }
 
     //--------------------------------------------------------------------------
@@ -90,20 +90,6 @@ public:
             WriteLog (lsWARNING, STAmount) << "nn(" << aa.getFullText () << " * " << bb.getFullText () << ") = " << prod1.getFullText ()
                                            << " not " << prod2.getFullText ();
 
-            fail ("Multiplication result is not exact");
-        }
-        else
-        {
-            pass ();
-        }
-
-        aa = a;
-        prod1 = multiply (aa, bb, noIssue());
-
-        if (prod1 != prod2)
-        {
-            WriteLog (lsWARNING, STAmount) << "n(" << aa.getFullText () << " * " << bb.getFullText () << ") = " << prod1.getFullText ()
-                                           << " not " << prod2.getFullText ();
             fail ("Multiplication result is not exact");
         }
         else
@@ -542,9 +528,7 @@ public:
         WriteLog (lsINFO, STAmount) << oneB;
         WriteLog (lsINFO, STAmount) << oneC;
 
-        STAmount fourThirdsA = addRound (twoThird2, twoThird2, false);
         STAmount fourThirdsB = twoThird2 + twoThird2;
-        STAmount fourThirdsC = addRound (twoThird2, twoThird2, true);
         WriteLog (lsINFO, STAmount) << fourThirdsA;
         WriteLog (lsINFO, STAmount) << fourThirdsB;
         WriteLog (lsINFO, STAmount) << fourThirdsC;

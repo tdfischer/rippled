@@ -49,7 +49,7 @@ private:
         // Only valid for custom currencies
         assert (!isXRP (issue.currency));
 
-        SLE::pointer const issuerAccount = mEngine->entryCache (
+        SLE::pointer const issuerAccount = mEngine->view().entryCache (
             ltACCOUNT_ROOT, getAccountRootIndex (issue.account));
 
         if (!issuerAccount)
@@ -65,7 +65,7 @@ private:
 
         if (issuerAccount->getFieldU32 (sfFlags) & lsfRequireAuth)
         {
-            SLE::pointer const trustLine (mEngine->entryCache (
+            SLE::pointer const trustLine (mEngine->view().entryCache (
                 ltRIPPLE_STATE, getRippleStateIndex (
                     mTxnAccountID, issue.account, issue.currency)));
 
@@ -486,14 +486,14 @@ public:
         }
 
         bool const bHaveExpiration (mTxn.isFieldPresent (sfExpiration));
-        
+
         if (bHaveExpiration && (mTxn.getFieldU32 (sfExpiration) == 0))
         {
             if (m_journal.debug) m_journal.warning <<
                 "Malformed offer: bad expiration";
             return temBAD_EXPIRATION;
         }
-        
+
         bool const bHaveCancel (mTxn.isFieldPresent (sfOfferSequence));
 
         if (bHaveCancel && (mTxn.getFieldU32 (sfOfferSequence) == 0))
@@ -604,12 +604,12 @@ public:
 
         view.bumpSeq (); // Begin ledger variance.
 
-        SLE::pointer sleCreator = mEngine->entryCache (
+        SLE::pointer sleCreator = mEngine->view().entryCache (
             ltACCOUNT_ROOT, getAccountRootIndex (mTxnAccountID));
 
         if (view.isGlobalFrozen (uPaysIssuerID) || view.isGlobalFrozen (uGetsIssuerID))
         {
-            m_journal.warning <<
+            if (m_journal.warning) m_journal.warning <<
                 "Offer involves frozen asset";
 
             result = tecFROZEN;
@@ -617,7 +617,7 @@ public:
         else if (view.accountFunds (
             mTxnAccountID, saTakerGets, fhZERO_IF_FROZEN) <= zero)
         {
-            m_journal.warning <<
+            if (m_journal.debug) m_journal.debug <<
                 "delay: Offers must be at least partially funded.";
 
             result = tecUNFUNDED_OFFER;
@@ -642,7 +642,7 @@ public:
         // Process a cancellation request that's passed along with an offer.
         if (bHaveCancel)
         {
-            SLE::pointer sleCancel = mEngine->entryCache (ltOFFER,
+            SLE::pointer sleCancel = mEngine->view().entryCache (ltOFFER,
                 getOfferIndex (mTxnAccountID, uCancelSequence));
 
             // It's not an error to not find the offer to cancel: it might have
@@ -774,7 +774,7 @@ public:
             return tesSUCCESS;
         }
 
-        if (mPriorBalance.getNValue () < getAccountReserve (sleCreator))
+        if (mPriorBalance < getAccountReserve (sleCreator))
         {
             // If we are here, the signing account had an insufficient reserve
             // *prior* to our processing. If something actually crossed, then
@@ -831,7 +831,7 @@ public:
 
         if (result == tesSUCCESS)
         {
-            SLE::pointer sleOffer (mEngine->entryCreate (ltOFFER, offer_index));
+            SLE::pointer sleOffer (mEngine->view().entryCreate (ltOFFER, offer_index));
 
             sleOffer->setFieldAccount (sfAccount, mTxnAccountID);
             sleOffer->setFieldU32 (sfSequence, uSequence);

@@ -211,6 +211,12 @@ public:
 
         for (auto const& remote_address : addresses)
         {
+            if (remote_address.port () == 0)
+            {
+                throw std::runtime_error ("Port not specified for address:" +
+                    remote_address.to_string ());
+            }
+
             auto result (state->fixed.emplace (std::piecewise_construct,
                 std::forward_as_tuple (remote_address),
                     std::make_tuple (std::ref (m_clock))));
@@ -725,7 +731,7 @@ public:
             // Enforce hop limit
             if (ep.hops > Tuning::maxHops)
             {
-                if (m_journal.warning) m_journal.warning << beast::leftw (18) <<
+                if (m_journal.debug) m_journal.debug << beast::leftw (18) <<
                     "Endpoints drop " << ep.address <<
                     " for excess hops " << ep.hops;
                 iter = list.erase (iter);
@@ -744,7 +750,7 @@ public:
                 }
                 else
                 {
-                    if (m_journal.warning) m_journal.warning << beast::leftw (18) <<
+                    if (m_journal.debug) m_journal.debug << beast::leftw (18) <<
                         "Endpoints drop " << ep.address <<
                         " for extra self";
                     iter = list.erase (iter);
@@ -755,7 +761,7 @@ public:
             // Discard invalid addresses
             if (! is_valid_address (ep.address))
             {
-                if (m_journal.warning) m_journal.warning << beast::leftw (18) <<
+                if (m_journal.debug) m_journal.debug << beast::leftw (18) <<
                     "Endpoints drop " << ep.address <<
                     " as invalid";
                 iter = list.erase (iter);
@@ -818,7 +824,7 @@ public:
             {
                 if (slot->connectivityCheckInProgress)
                 {
-                    if (m_journal.warning) m_journal.warning << beast::leftw (18) <<
+                    if (m_journal.debug) m_journal.debug << beast::leftw (18) <<
                         "Logic testing " << ep.address << " already in progress";
                     continue;
                 }

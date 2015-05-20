@@ -21,7 +21,7 @@
 #define RIPPLE_APP_LEDGER_INBOUNDLEDGER_H_INCLUDED
 
 #include <ripple/app/ledger/Ledger.h>
-#include <ripple/app/peers/PeerSet.h>
+#include <ripple/overlay/PeerSet.h>
 #include <ripple/basics/CountedObject.h>
 #include <set>
 
@@ -54,6 +54,9 @@ public:
     InboundLedger (uint256 const& hash, std::uint32_t seq, fcReason reason, clock_type& clock);
 
     ~InboundLedger ();
+
+    // Called when another attempt is made to fetch this same ledger
+    void update (std::uint32_t seq);
 
     bool isHeader () const
     {

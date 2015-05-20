@@ -40,7 +40,7 @@ public:
 
     // VFALCO TODO Should this be called findOrAdd ?
     //
-    virtual InboundLedger::pointer findCreate (uint256 const& hash,
+    virtual Ledger::pointer acquire (uint256 const& hash,
         std::uint32_t seq, InboundLedger::fcReason) = 0;
 
     virtual InboundLedger::pointer find (LedgerHash const& hash) = 0;
@@ -70,6 +70,12 @@ public:
     virtual void clearFailures() = 0;
 
     virtual Json::Value getInfo() = 0;
+
+    /** Returns the rate of historical ledger fetches per minute. */
+    virtual std::size_t fetchRate() = 0;
+
+    /** Called when a complete ledger is obtained. */
+    virtual void onLedgerFetched (InboundLedger::fcReason why) = 0;
 
     virtual void gotFetchPack (Job&) = 0;
     virtual void sweep () = 0;

@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------
 /*
     This file is part of rippled: https://github.com/ripple/rippled
-    Copyright (c) 2012, 2013 Ripple Labs Inc.
+    Copyright (c) 2014 Ripple Labs Inc.
 
     Permission to use, copy, modify, and/or distribute this software for any
     purpose  with  or without fee is hereby granted, provided that the above
@@ -17,21 +17,29 @@
 */
 //==============================================================================
 
-#include <BeastConfig.h>
-#include <ripple/app/tx/TransactionEngine.h>
+#ifndef RIPPLE_RPC_ACCOUNT_OBJECTS_H_INCLUDED
+#define RIPPLE_RPC_ACCOUNT_OBJECTS_H_INCLUDED
+
+#include <ripple/app/ledger/Ledger.h>
 
 namespace ripple {
+namespace RPC {
 
-// VFALCO TODO move this into TransactionEngine.cpp
+/** Gathers all objects for an account in a ledger.
+    @param ledger Ledger to search account objects.
+    @param account Account to find objects for.
+    @param type Gathers objects of this type. ltINVALID gathers all types.
+    @param dirIndex Begin gathering account objects from this directory.
+    @param entryIndex Begin gathering objects from this directory node.
+    @param limit Maximum number of objects to find.
+    @param jvResult A JSON result that holds the request objects.
+*/
+bool
+getAccountObjects (Ledger const& ledger, Account const& account,
+    LedgerEntryType const type, uint256 dirIndex, uint256 const& entryIndex,
+    std::uint32_t const limit, Json::Value& jvResult);
 
-// Double check a transaction's metadata to make sure no system invariants were broken
-
-bool TransactionEngine::checkInvariants (TER result, const STTx& txn, TransactionEngineParams params)
-{
-    // VFALCO I deleted a bunch of code that was wrapped in #if 0.
-    //        If you need it, check the commit log.
-
-    return true;
-}
-
+} // RPC
 } // ripple
+
+#endif

@@ -67,7 +67,7 @@ public:
         auto const accountReserve (mEngine->getLedger ()->getReserve (
             mTxnAccount->getFieldU32 (sfOwnerCount) + 1));
 
-        if (mPriorBalance.getNValue () < accountReserve)
+        if (mPriorBalance < accountReserve)
             return tecINSUFFICIENT_RESERVE;
 
         std::uint32_t expiration (0);
@@ -80,7 +80,7 @@ public:
                 return tesSUCCESS;
         }
 
-        SLE::pointer sleTicket = mEngine->entryCreate (ltTICKET,
+        SLE::pointer sleTicket = mEngine->view().entryCreate (ltTICKET,
             getTicketIndex (mTxnAccountID, mTxn.getSequence ()));
 
         sleTicket->setFieldAccount (sfAccount, mTxnAccountID);
@@ -93,7 +93,7 @@ public:
         {
             Account const target_account (mTxn.getFieldAccount160 (sfTarget));
 
-            SLE::pointer sleTarget = mEngine->entryCache (ltACCOUNT_ROOT,
+            SLE::pointer sleTarget = mEngine->view().entryCache (ltACCOUNT_ROOT,
                 getAccountRootIndex (target_account));
 
             // Destination account does not exist.

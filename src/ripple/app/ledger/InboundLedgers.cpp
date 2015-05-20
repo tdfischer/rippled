@@ -21,6 +21,7 @@
 #include <ripple/app/ledger/InboundLedgers.h>
 #include <ripple/app/main/Application.h>
 #include <ripple/app/misc/NetworkOPs.h>
+#include <ripple/basics/DecayingSample.h>
 #include <ripple/basics/Log.h>
 #include <ripple/core/JobQueue.h>
 #include <beast/cxx14/memory.h> // <memory>
@@ -32,6 +33,11 @@ class InboundLedgersImp
     : public InboundLedgers
     , public beast::Stoppable
 {
+private:
+    std::mutex fetchRateMutex_;
+    // measures ledgers per second, constants are important
+    DecayWindow<30, clock_type> fetchRate_;
+
 public:
     typedef std::pair<uint256, InboundLedger::pointer> u256_acq_pair;
     // How long before we try again to acquire the same ledger
@@ -40,6 +46,7 @@ public:
     InboundLedgersImp (clock_type& clock, Stoppable& parent,
                        beast::insight::Collector::ptr const& collector)
         : Stoppable ("InboundLedgers", parent)
+        , fetchRate_(clock.now())
         , m_clock (clock)
         , mRecentFailures ("LedgerAcquireRecentFailures",
             clock, 0, kReacquireIntervalSeconds)
@@ -47,61 +54,33 @@ public:
     {
     }
 
-    // VFALCO TODO Should this be called findOrAdd ?
-    //
-    InboundLedger::pointer findCreate (uint256 const& hash, std::uint32_t seq, InboundLedger::fcReason reason)
+    Ledger::pointer acquire (uint256 const& hash, std::uint32_t seq, InboundLedger::fcReason reason)
     {
         assert (hash.isNonZero ());
-        InboundLedger::pointer ret;
-
-        // Ensure that any previous IL is destroyed outside the lock
-        InboundLedger::pointer oldLedger;
+        Ledger::pointer ret;
 
         {
             ScopedLockType sl (mLock);
 
             if (! isStopping ())
             {
-
-                if (reason == InboundLedger::fcCONSENSUS)
-                {
-                    if (mConsensusLedger.isNonZero() && (mValidationLedger != mConsensusLedger) && (hash != mConsensusLedger))
-                    {
-                        hash_map<uint256, InboundLedger::pointer>::iterator it = mLedgers.find (mConsensusLedger);
-                        if (it != mLedgers.end ())
-                        {
-                            oldLedger = it->second;
-                            mLedgers.erase (it);
-                        }
-                    }
-                    mConsensusLedger = hash;
-                }
-                else if (reason == InboundLedger::fcVALIDATION)
-                {
-                    if (mValidationLedger.isNonZero() && (mValidationLedger != mConsensusLedger) && (hash != mValidationLedger))
-                    {
-                        hash_map<uint256, InboundLedger::pointer>::iterator it = mLedgers.find (mValidationLedger);
-                        if (it != mLedgers.end ())
-                        {
-                            oldLedger = it->second;
-                            mLedgers.erase (it);
-                       }
-                    }
-                    mValidationLedger = hash;
-                }
-
-                hash_map<uint256, InboundLedger::pointer>::iterator it = mLedgers.find (hash);
+                auto it = mLedgers.find (hash);
                 if (it != mLedgers.end ())
                 {
-                    ret = it->second;
-                    // FIXME: Should set the sequence if it's not set
+                    // Don't touch failed acquires so they can expire
+                    if (! it->second->isFailed ())
+                    {
+                        it->second->update (seq);
+                        if (it->second->isComplete ())
+                            ret = it->second->getLedger ();
+                    }
+
                 }
                 else
                 {
-                    ret = std::make_shared <InboundLedger> (hash, seq, reason, std::ref (m_clock));
-                    assert (ret);
-                    mLedgers.insert (std::make_pair (hash, ret));
-                    ret->init (sl);
+                    auto il = std::make_shared <InboundLedger> (hash, seq, reason, std::ref (m_clock));
+                    mLedgers.insert (std::make_pair (hash, il));
+                    il->init (sl);
                     ++mCounter;
                 }
             }
@@ -282,6 +261,24 @@ public:
         mLedgers.clear();
     }
 
+    std::size_t fetchRate()
+    {
+        std::lock_guard<
+            std::mutex> lock(fetchRateMutex_);
+        return 60 * fetchRate_.value(
+            m_clock.now());
+    }
+
+    void onLedgerFetched (
+        InboundLedger::fcReason why)
+    {
+        if (why != InboundLedger::fcHISTORY)
+            return;
+        std::lock_guard<
+            std::mutex> lock(fetchRateMutex_);
+        fetchRate_.add(1, m_clock.now());
+    }
+
     Json::Value getInfo()
     {
         Json::Value ret(Json::objectValue);
@@ -392,9 +389,6 @@ private:
 
     MapType mLedgers;
     KeyCache <uint256> mRecentFailures;
-
-    uint256 mConsensusLedger;
-    uint256 mValidationLedger;
 
     beast::insight::Counter mCounter;
 };

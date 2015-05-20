@@ -39,7 +39,7 @@ CreateOffer::checkAcceptAsset(IssueRef issue) const
     /* Only valid for custom currencies */
     assert (!isXRP (issue.currency));
 
-    SLE::pointer const issuerAccount = mEngine->entryCache (
+    SLE::pointer const issuerAccount = mEngine->view().entryCache (
         ltACCOUNT_ROOT, getAccountRootIndex (issue.account));
 
     if (!issuerAccount)
@@ -55,7 +55,7 @@ CreateOffer::checkAcceptAsset(IssueRef issue) const
 
     if (issuerAccount->getFieldU32 (sfFlags) & lsfRequireAuth)
     {
-        SLE::pointer const trustLine (mEngine->entryCache (
+        SLE::pointer const trustLine (mEngine->view().entryCache (
             ltRIPPLE_STATE, getRippleStateIndex (
                 mTxnAccountID, issue.account, issue.currency)));
 
@@ -236,7 +236,7 @@ CreateOffer::doApply()
 
     view.bumpSeq (); // Begin ledger variance.
 
-    SLE::pointer sleCreator = mEngine->entryCache (
+    SLE::pointer sleCreator = mEngine->view().entryCache (
         ltACCOUNT_ROOT, getAccountRootIndex (mTxnAccountID));
 
     if (uTxFlags & tfOfferCreateMask)
@@ -299,7 +299,7 @@ CreateOffer::doApply()
     }
     else if (view.isGlobalFrozen (uPaysIssuerID) || view.isGlobalFrozen (uGetsIssuerID))
     {
-        m_journal.warning <<
+        if (m_journal.debug) m_journal.debug <<
             "Offer involves frozen asset";
 
         terResult = tecFROZEN;
@@ -307,7 +307,7 @@ CreateOffer::doApply()
     else if (view.accountFunds (
         mTxnAccountID, saTakerGets, fhZERO_IF_FROZEN) <= zero)
     {
-        m_journal.warning <<
+        if (m_journal.debug) m_journal.debug <<
             "delay: Offers must be at least partially funded.";
 
         terResult = tecUNFUNDED_OFFER;
@@ -336,13 +336,13 @@ CreateOffer::doApply()
     {
         uint256 const uCancelIndex (
             getOfferIndex (mTxnAccountID, uCancelSequence));
-        SLE::pointer sleCancel = mEngine->entryCache (ltOFFER, uCancelIndex);
+        SLE::pointer sleCancel = mEngine->view().entryCache (ltOFFER, uCancelIndex);
 
         // It's not an error to not find the offer to cancel: it might have
         // been consumed or removed as we are processing.
         if (sleCancel)
         {
-            m_journal.warning <<
+            if (m_journal.debug) m_journal.debug <<
                 "Cancelling order with sequence " << uCancelSequence;
 
             terResult = view.offerDelete (sleCancel);
@@ -466,7 +466,7 @@ CreateOffer::doApply()
     {
         // Complete as is.
     }
-    else if (mPriorBalance.getNValue () < accountReserve)
+    else if (mPriorBalance < accountReserve)
     {
         // If we are here, the signing account had an insufficient reserve
         // *prior* to our processing. We use the prior balance to simplify
@@ -571,7 +571,7 @@ CreateOffer::doApply()
                     saTakerGets.getHumanCurrency ();
             }
 
-            SLE::pointer sleOffer (mEngine->entryCreate (ltOFFER, uLedgerIndex));
+            SLE::pointer sleOffer (mEngine->view().entryCreate (ltOFFER, uLedgerIndex));
 
             sleOffer->setFieldAccount (sfAccount, mTxnAccountID);
             sleOffer->setFieldU32 (sfSequence, uSequence);

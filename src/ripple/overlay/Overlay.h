@@ -22,6 +22,7 @@
 
 #include <ripple/json/json_value.h>
 #include <ripple/overlay/Peer.h>
+#include <ripple/overlay/PeerSet.h>
 #include <ripple/server/Handoff.h>
 #include <beast/asio/ssl_bundle.h>
 #include <beast/http/message.h>
@@ -31,6 +32,7 @@
 #include <beast/cxx14/type_traits.h> // <type_traits>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <functional>
 
 namespace boost { namespace asio { namespace ssl { class context; } } }
 
@@ -65,6 +67,7 @@ public:
         bool auto_connect = true;
         Promote promote = Promote::automatic;
         std::shared_ptr<boost::asio::ssl::context> context;
+        bool expire = false;
     };
 
     typedef std::vector <Peer::ptr> PeerSequence;
@@ -131,6 +134,28 @@ public:
     Peer::ptr
     findPeerByShortID (Peer::id_t const& id) = 0;
 
+    /** Broadcast a proposal. */
+    virtual
+    void
+    send (protocol::TMProposeSet& m) = 0;
+
+    /** Broadcast a validation. */
+    virtual
+    void
+    send (protocol::TMValidation& m) = 0;
+
+    /** Relay a proposal. */
+    virtual
+    void
+    relay (protocol::TMProposeSet& m,
+        uint256 const& uid) = 0;
+
+    /** Relay a validation. */
+    virtual
+    void
+    relay (protocol::TMValidation& m,
+        uint256 const& uid) = 0;
+
     /** Visit every active peer and return a value
         The functor must:
         - Be callable as:
@@ -179,6 +204,48 @@ public:
         for(PeerSequence::const_iterator i = peers.begin(); i != peers.end(); ++i)
             f (*i);
     }
+
+    /** Select from active peers
+
+        Scores all active peers.
+        Tries to accept the highest scoring peers, up to the requested count,
+        Returns the number of selected peers accepted.
+
+        The score function must:
+        - Be callable as:
+           bool (PeerImp::ptr)
+        - Return a true if the peer is prefered
+
+        The accept function must:
+        - Be callable as:
+           bool (PeerImp::ptr)
+        - Return a true if the peer is accepted
+
+    */
+    virtual
+    std::size_t
+    selectPeers (PeerSet& set, std::size_t limit, std::function<
+        bool(std::shared_ptr<Peer> const&)> score) = 0;
+};
+
+struct ScoreHasLedger
+{
+    uint256 const& hash_;
+    std::uint32_t seq_;
+    bool operator()(std::shared_ptr<Peer> const&) const;
+
+    ScoreHasLedger (uint256 const& hash, std::uint32_t seq)
+        : hash_ (hash), seq_ (seq)
+    {}
+};
+
+struct ScoreHasTxSet
+{
+    uint256 const& hash_;
+    bool operator()(std::shared_ptr<Peer> const&) const;
+
+    ScoreHasTxSet (uint256 const& hash) : hash_ (hash)
+    {}
 };
 
 }

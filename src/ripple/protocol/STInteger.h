@@ -36,13 +36,23 @@ public:
         : value_ (v)
     { }
 
-    STInteger (SField::ref n, Integer v = 0)
+    STInteger (SField const& n, Integer v = 0)
         : STBase (n), value_ (v)
     { }
 
-    static
-    std::unique_ptr<STBase>
-    deserialize (SerialIter& sit, SField::ref name);
+    STInteger(SerialIter& sit, SField const& name);
+
+    STBase*
+    copy (std::size_t n, void* buf) const override
+    {
+        return emplace(n, buf, *this);
+    }
+
+    STBase*
+    move (std::size_t n, void* buf) override
+    {
+        return emplace(n, buf, std::move(*this));
+    }
 
     SerializedTypeID
     getSType () const override;
@@ -90,12 +100,6 @@ public:
     {
         const STInteger* v = dynamic_cast<const STInteger*> (&t);
         return v && (value_ == v->value_);
-    }
-
-    std::unique_ptr<STBase>
-    duplicate () const override
-    {
-        return std::make_unique<STInteger>(*this);
     }
 
 private:

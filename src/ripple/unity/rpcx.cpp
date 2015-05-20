@@ -37,6 +37,7 @@
 #include <ripple/rpc/handlers/AccountCurrencies.cpp>
 #include <ripple/rpc/handlers/AccountInfo.cpp>
 #include <ripple/rpc/handlers/AccountLines.cpp>
+#include <ripple/rpc/handlers/AccountObjects.cpp>
 #include <ripple/rpc/handlers/AccountOffers.cpp>
 #include <ripple/rpc/handlers/AccountTx.cpp>
 #include <ripple/rpc/handlers/AccountTxOld.cpp>
@@ -88,13 +89,12 @@
 #include <ripple/rpc/handlers/Unsubscribe.cpp>
 #include <ripple/rpc/handlers/ValidationCreate.cpp>
 #include <ripple/rpc/handlers/ValidationSeed.cpp>
-#include <ripple/rpc/handlers/WalletAccounts.cpp>
 #include <ripple/rpc/handlers/WalletPropose.cpp>
 #include <ripple/rpc/handlers/WalletSeed.cpp>
 
 #include <ripple/rpc/impl/AccountFromString.cpp>
 #include <ripple/rpc/impl/Accounts.cpp>
-#include <ripple/rpc/impl/GetMasterGenerator.cpp>
+#include <ripple/rpc/impl/GetAccountObjects.cpp>
 #include <ripple/rpc/impl/Handler.cpp>
 #include <ripple/rpc/impl/KeypairForSignature.cpp>
 #include <ripple/rpc/impl/LegacyPathFind.cpp>

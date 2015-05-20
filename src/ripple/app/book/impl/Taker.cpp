@@ -136,14 +136,14 @@ BasicTaker::remaining_offer () const
 
         // We scale the output based on the remaining input:
         return Amounts (remaining_.in, divRound (
-            remaining_.in, quality_.rate (), remaining_.out, true));
+            remaining_.in, quality_.rate (), issue_out_, true));
     }
 
     assert (remaining_.out > zero);
 
     // We scale the input based on the remaining output:
     return Amounts (mulRound (
-        remaining_.out, quality_.rate (), remaining_.in, true), remaining_.out);
+        remaining_.out, quality_.rate (), issue_in_, true), remaining_.out);
 }
 
 Amounts const&
@@ -294,7 +294,7 @@ BasicTaker::flow_iou_to_iou (
         f.issuers.in = rate_in.multiply (f.order.in);
     }
 
-    // Clamp on the taker's input balance and input offer
+    // Clamp on the taker's input offer
     if (remaining_.in < f.order.in)
     {
         f.order.in = remaining_.in;
@@ -303,7 +303,8 @@ BasicTaker::flow_iou_to_iou (
         f.issuers.out = rate_out.multiply (f.order.out);
     }
 
-    if (taker_funds < f.order.in)
+    // Clamp on the taker's input balance
+    if (taker_funds < f.issuers.in)
     {
         f.issuers.in = taker_funds;
         f.order.in = rate_in.divide (f.issuers.in);
@@ -327,7 +328,7 @@ BasicTaker::do_cross (Amounts offer, Quality quality, Account const& owner)
 
     if (cross_type_ == CrossType::XrpToIou)
     {
-        result = flow_xrp_to_iou (offer, quality, owner_funds, taker_funds, 
+        result = flow_xrp_to_iou (offer, quality, owner_funds, taker_funds,
             out_rate (owner, account ()));
     }
     else if (cross_type_ == CrossType::IouToXrp)
@@ -489,6 +490,10 @@ TER Taker::transfer_xrp (
     if (from == to)
         return tesSUCCESS;
 
+    // Transferring zero is equivalent to not doing a transfer
+    if (amount == zero)
+        return tesSUCCESS;
+
     return m_view.transfer_xrp (from, to, amount);
 }
 
@@ -503,7 +508,21 @@ TER Taker::redeem_iou (
     if (account == issue.account)
         return tesSUCCESS;
 
-    return m_view.redeem_iou (account, amount, issue);
+    // Transferring zero is equivalent to not doing a transfer
+    if (amount == zero)
+        return tesSUCCESS;
+
+    // If we are trying to redeem some amount, then the account
+    // must have a credit balance.
+    if (get_funds (account, amount) <= zero)
+        throw std::logic_error ("redeem_iou has no funds to redeem");
+
+    auto ret = m_view.redeem_iou (account, amount, issue);
+
+    if (get_funds (account, amount) < zero)
+        throw std::logic_error ("redeem_iou redeemed more funds than available");
+
+    return ret;
 }
 
 TER Taker::issue_iou (
@@ -515,6 +534,10 @@ TER Taker::issue_iou (
         throw std::logic_error ("Using issue_iou with XRP");
 
     if (account == issue.account)
+        return tesSUCCESS;
+
+    // Transferring zero is equivalent to not doing a transfer
+    if (amount == zero)
         return tesSUCCESS;
 
     return m_view.issue_iou (account, amount, issue);

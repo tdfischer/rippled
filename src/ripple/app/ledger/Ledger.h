@@ -181,8 +181,6 @@ public:
         mAccountStateMap->setLedgerSeq (mLedgerSeq);
     }
 
-    bool enforceFreeze () const;
-
     // ledger signature operations
     void addRaw (Serializer & s) const;
     void setRaw (Serializer & s, bool hasPrefix);
@@ -343,12 +341,6 @@ public:
         int max, SHAMapSyncFilter* filter) const;
     std::vector<uint256> getNeededAccountStateHashes (
         int max, SHAMapSyncFilter* filter) const;
-
-    //
-    // Generator Map functions
-    //
-
-    SLE::pointer getGenerator (Account const& uGeneratorID) const;
 
     //
     // Offer functions

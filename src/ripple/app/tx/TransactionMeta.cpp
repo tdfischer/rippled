@@ -29,25 +29,22 @@ namespace ripple {
 // VFALCO TODO rename class to TransactionMeta
 
 template<class T>
-TransactionMetaSet::TransactionMetaSet (uint256 const& txid, std::uint32_t ledger, T const& data,
-                                        CtorHelper) :
-    mTransactionID (txid), mLedger (ledger), mNodes (sfAffectedNodes, 32)
+TransactionMetaSet::TransactionMetaSet (uint256 const& txid,
+    std::uint32_t ledger, T const& data, CtorHelper)
+    : mTransactionID (txid)
+    , mLedger (ledger)
+    , mNodes (sfAffectedNodes, 32)
 {
     Serializer s (data);
     SerialIter sit (s);
 
-    std::unique_ptr<STBase> pobj = STObject::deserialize (sit, sfMetadata);
-    STObject* obj = static_cast<STObject*> (pobj.get ());
+    STObject obj(sit, sfMetadata);
+    mResult = obj.getFieldU8 (sfTransactionResult);
+    mIndex = obj.getFieldU32 (sfTransactionIndex);
+    mNodes = * dynamic_cast<STArray*> (&obj.getField (sfAffectedNodes));
 
-    if (!obj)
-        throw std::runtime_error ("bad metadata");
-
-    mResult = obj->getFieldU8 (sfTransactionResult);
-    mIndex = obj->getFieldU32 (sfTransactionIndex);
-    mNodes = * dynamic_cast<STArray*> (&obj->getField (sfAffectedNodes));
-
-    if (obj->isFieldPresent (sfDeliveredAmount))
-        setDeliveredAmount (obj->getFieldAmount (sfDeliveredAmount));
+    if (obj.isFieldPresent (sfDeliveredAmount))
+        setDeliveredAmount (obj.getFieldAmount (sfDeliveredAmount));
 }
 
 TransactionMetaSet::TransactionMetaSet (uint256 const& txid,
@@ -75,7 +72,7 @@ bool TransactionMetaSet::isNodeAffected (uint256 const& node) const
     return false;
 }
 
-void TransactionMetaSet::setAffectedNode (uint256 const& node, SField::ref type,
+void TransactionMetaSet::setAffectedNode (uint256 const& node, SField const& type,
                                           std::uint16_t nodeType)
 {
     // make sure the node exists and force its type
@@ -125,7 +122,7 @@ std::vector<RippleAddress> TransactionMetaSet::getAffectedAccounts ()
 
             if (inner)
             {
-                for (auto const& field : inner->peekData ())
+                for (auto const& field : *inner)
                 {
                     const STAccount* sa = dynamic_cast<const STAccount*> (&field);
 
@@ -161,7 +158,7 @@ std::vector<RippleAddress> TransactionMetaSet::getAffectedAccounts ()
     return accounts;
 }
 
-STObject& TransactionMetaSet::getAffectedNode (SLE::ref node, SField::ref type)
+STObject& TransactionMetaSet::getAffectedNode (SLE::ref node, SField const& type)
 {
     assert (&type);
     uint256 index = node->getIndex ();
@@ -242,7 +239,7 @@ STObject TransactionMetaSet::getAsObject () const
     assert (mResult != 255);
     metaData.setFieldU8 (sfTransactionResult, mResult);
     metaData.setFieldU32 (sfTransactionIndex, mIndex);
-    metaData.addObject (mNodes);
+    metaData.emplace_back (mNodes);
     if (hasDeliveredAmount ())
         metaData.setFieldAmount (sfDeliveredAmount, getDeliveredAmount ());
     return metaData;

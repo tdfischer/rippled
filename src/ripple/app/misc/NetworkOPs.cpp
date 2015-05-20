@@ -248,8 +248,6 @@ public:
 
     AccountState::pointer getAccountState (
         Ledger::ref lrLedger, RippleAddress const& accountID);
-    SLE::pointer getGenerator (
-        Ledger::ref lrLedger, Account const& uGeneratorID);
 
     //
     // Directory functions
@@ -1033,7 +1031,6 @@ Transaction::pointer NetworkOPsImp::processTransactionCb (
         if (callback)
             callback (trans, r);
 
-
         if (r == tefFAILURE)
             throw Fault (IO_ERROR);
 
@@ -1127,15 +1124,6 @@ AccountState::pointer NetworkOPsImp::getAccountState (
     return lrLedger->getAccountState (accountID);
 }
 
-SLE::pointer NetworkOPsImp::getGenerator (
-    Ledger::ref lrLedger, Account const& uGeneratorID)
-{
-    if (!lrLedger)
-        return SLE::pointer ();
-
-    return lrLedger->getGenerator (uGeneratorID);
-}
-
 //
 // Directory functions
 //
@@ -1226,7 +1214,6 @@ Json::Value NetworkOPsImp::getOwnerInfo (
 
                 case ltACCOUNT_ROOT:
                 case ltDIR_NODE:
-                case ltGENERATOR_MAP:
                 default:
                     assert (false);
                     break;
@@ -1444,17 +1431,7 @@ bool NetworkOPsImp::checkLastClosedLedger (
         networkClosed = closedLedger;
 
     if (!switchLedgers)
-    {
-        if (mAcquiringLedger)
-        {
-            mAcquiringLedger->abort ();
-            getApp().getInboundLedgers ().dropLedger (
-                mAcquiringLedger->getHash ());
-            mAcquiringLedger.reset ();
-        }
-
         return false;
-    }
 
     m_journal.warning << "We are not running on the consensus ledger";
     m_journal.info << "Our LCL: " << getJson (*ourClosed);
@@ -1466,31 +1443,18 @@ bool NetworkOPsImp::checkLastClosedLedger (
     Ledger::pointer consensus = m_ledgerMaster.getLedgerByHash (closedLedger);
 
     if (!consensus)
+        consensus = getApp().getInboundLedgers().acquire (
+            closedLedger, 0, InboundLedger::fcCONSENSUS);
+
+    if (consensus)
     {
-        m_journal.info << "Acquiring consensus ledger " << closedLedger;
-
-        if (!mAcquiringLedger || (mAcquiringLedger->getHash () != closedLedger))
-            mAcquiringLedger = getApp().getInboundLedgers ().findCreate (
-                closedLedger, 0, InboundLedger::fcCONSENSUS);
-
-        if (!mAcquiringLedger || mAcquiringLedger->isFailed ())
-        {
-            getApp().getInboundLedgers ().dropLedger (closedLedger);
-            m_journal.error << "Network ledger cannot be acquired";
-            return true;
-        }
-
-        if (!mAcquiringLedger->isComplete ())
-            return true;
-
         clearNeedNetworkLedger ();
-        consensus = mAcquiringLedger->getLedger ();
-    }
 
-    // FIXME: If this rewinds the ledger sequence, or has the same sequence, we
-    // should update the status on any stored transactions in the invalidated
-    // ledgers.
-    switchLastClosedLedger (consensus, false);
+        // FIXME: If this rewinds the ledger sequence, or has the same sequence, we
+        // should update the status on any stored transactions in the invalidated
+        // ledgers.
+        switchLastClosedLedger (consensus, false);
+    }
 
     return true;
 }
@@ -1641,21 +1605,10 @@ void NetworkOPsImp::processTrustedProposal (
         }
 
         if (relay)
-        {
-            std::set<Peer::id_t> peers;
-            if (getApp().getHashRouter ().swapSet (
-                proposal->getSuppressionID (), peers, SF_RELAYED))
-            {
-                getApp ().overlay ().foreach (send_if_not (
-                    std::make_shared<Message> (
-                        *set, protocol::mtPROPOSE_LEDGER),
-                    peer_in_set(peers)));
-            }
-        }
+            getApp().overlay().relay(*set,
+                proposal->getSuppressionID());
         else
-        {
             m_journal.info << "Not relaying trusted proposal";
-        }
     }
 }
 
@@ -2961,7 +2914,9 @@ void NetworkOPsImp::getBookPage (
                     // Need to charge a transfer fee to offer owner.
                     uOfferRate          = uTransferRate;
                     saOwnerFundsLimit   = divide (
-                        saOwnerFunds, STAmount (noIssue(), uOfferRate, -9));
+                        saOwnerFunds,
+                        STAmount (noIssue(), uOfferRate, -9),
+                        saOwnerFunds.issue ());
                     // TODO(tom): why -9?
                 }
                 else
@@ -2984,7 +2939,7 @@ void NetworkOPsImp::getBookPage (
                     saTakerGetsFunded.setJson (jvOffer[jss::taker_gets_funded]);
                     std::min (
                         saTakerPays, multiply (
-                            saTakerGetsFunded, saDirRate, saTakerPays)).setJson
+                            saTakerGetsFunded, saDirRate, saTakerPays.issue ())).setJson
                             (jvOffer[jss::taker_pays_funded]);
                 }
 
@@ -2994,8 +2949,8 @@ void NetworkOPsImp::getBookPage (
                         saOwnerFunds,
                         multiply (
                             saTakerGetsFunded,
-                            STAmount (noIssue(),
-                                      uOfferRate, -9)));
+                            STAmount (noIssue(), uOfferRate, -9),
+                            saTakerGetsFunded.issue ()));
 
                 umBalance[uOfferOwnerID]    = saOwnerFunds - saOwnerPays;
 
@@ -3150,7 +3105,7 @@ void NetworkOPsImp::getBookPage (
                 // TOOD(tom): The result of this expression is not used - what's
                 // going on here?
                 std::min (saTakerPays, multiply (
-                    saTakerGetsFunded, saDirRate, saTakerPays)).setJson (
+                    saTakerGetsFunded, saDirRate, saTakerPays.issue ())).setJson (
                         jvOffer[jss::taker_pays_funded]);
             }
 
@@ -3284,17 +3239,17 @@ void NetworkOPsImp::makeFetchPack (
             newObj.set_ledgerseq (lSeq);
 
             wantLedger->peekAccountStateMap ()->getFetchPack
-                (haveLedger->peekAccountStateMap ().get (), true, 1024,
+                (haveLedger->peekAccountStateMap ().get (), true, 16384,
                     std::bind (fpAppender, &reply, lSeq, std::placeholders::_1,
                                std::placeholders::_2));
 
             if (wantLedger->getTransHash ().isNonZero ())
                 wantLedger->peekTransactionMap ()->getFetchPack (
-                    nullptr, true, 256,
+                    nullptr, true, 512,
                     std::bind (fpAppender, &reply, lSeq, std::placeholders::_1,
                                std::placeholders::_2));
 
-            if (reply.objects ().size () >= 256)
+            if (reply.objects ().size () >= 512)
                 break;
 
             // move may save a ref/unref
@@ -3381,7 +3336,7 @@ void NetworkOPsImp::missingNodeInLedger (std::uint32_t seq)
     else
     {
         m_journal.warning << "Missing a node in ledger " << seq << " fetching";
-        getApp().getInboundLedgers ().findCreate (
+        getApp().getInboundLedgers ().acquire (
             hash, seq, InboundLedger::fcGENERIC);
     }
 }

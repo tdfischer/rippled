@@ -30,13 +30,13 @@ class STAccount final
     : public STBlob
 {
 public:
-    STAccount (SField::ref n, Buffer&& v)
+    STAccount (SField const& n, Buffer&& v)
             : STBlob (n, std::move(v))
     {
         ;
     }
-    STAccount (SField::ref n, Account const& v);
-    STAccount (SField::ref n) : STBlob (n)
+    STAccount (SField const& n, Account const& v);
+    STAccount (SField const& n) : STBlob (n)
     {
         ;
     }
@@ -44,9 +44,19 @@ public:
     {
         ;
     }
-    static std::unique_ptr<STBase> deserialize (SerialIter& sit, SField::ref name)
+
+    STAccount (SerialIter& sit, SField const& name);
+
+    STBase*
+    copy (std::size_t n, void* buf) const override
     {
-        return std::unique_ptr<STBase> (construct (sit, name));
+        return emplace(n, buf, *this);
+    }
+
+    STBase*
+    move (std::size_t n, void* buf) override
+    {
+        return emplace(n, buf, std::move(*this));
     }
 
     SerializedTypeID getSType () const override
@@ -76,14 +86,8 @@ public:
 
     bool isValueH160 () const;
 
-    std::unique_ptr<STBase>
-    duplicate () const override
-    {
-        return std::make_unique<STAccount>(*this);
-    }
-
 private:
-    static STAccount* construct (SerialIter&, SField::ref);
+    static STAccount* construct (SerialIter&, SField const&);
 };
 
 } // ripple

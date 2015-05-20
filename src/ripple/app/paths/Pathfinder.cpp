@@ -430,7 +430,7 @@ namespace {
 // total number of paths we have to evaluate.
 STAmount smallestUsefulAmount (STAmount const& amount, int maxPaths)
 {
-    return divide (amount, STAmount (maxPaths + 2), amount);
+    return divide (amount, STAmount (maxPaths + 2), amount.issue ());
 }
 
 } // namespace
@@ -710,8 +710,7 @@ int Pathfinder::getPathsOut (
 
     int aFlags = sleAccount->getFieldU32 (sfFlags);
     bool const bAuthRequired = (aFlags & lsfRequireAuth) != 0;
-    bool const bFrozen = ((aFlags & lsfGlobalFreeze) != 0)
-        && mLedger->enforceFreeze ();
+    bool const bFrozen = ((aFlags & lsfGlobalFreeze) != 0);
 
     int count = 0;
 
@@ -741,7 +740,7 @@ int Pathfinder::getPathsOut (
             {
                 // This probably isn't a useful path out
             }
-            else if (rspEntry->getFreezePeer () && mLedger->enforceFreeze ())
+            else if (rspEntry->getFreezePeer ())
             {
                 // Not a useful path out
             }

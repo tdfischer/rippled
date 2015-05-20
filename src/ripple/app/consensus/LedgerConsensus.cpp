@@ -103,7 +103,7 @@ public:
         , mClosePercent (0)
         , mHaveCloseTimeConsensus (false)
         , mConsensusStartTime
-            (boost::posix_time::microsec_clock::universal_time ())
+            (std::chrono::steady_clock::now ())
     {
         WriteLog (lsDEBUG, LedgerConsensus) << "Creating consensus object";
         WriteLog (lsTRACE, LedgerConsensus)
@@ -548,7 +548,7 @@ public:
                 mAcquiringLedger = mPrevLedgerHash;
                 getApp().getJobQueue().addJob (jtADVANCE, "getConsensusLedger",
                     std::bind (
-                        &InboundLedgers::findCreate,
+                        &InboundLedgers::acquire,
                         &getApp().getInboundLedgers(),
                         mPrevLedgerHash, 0, InboundLedger::fcCONSENSUS));
                 mHaveCorrectLCL = false;
@@ -594,9 +594,8 @@ public:
         if ((mState != lcsFINISHED) && (mState != lcsACCEPTED))
             checkLCL ();
 
-        mCurrentMSeconds =
-            (boost::posix_time::microsec_clock::universal_time ()
-            - mConsensusStartTime).total_milliseconds ();
+        mCurrentMSeconds = std::chrono::duration_cast <std::chrono::milliseconds>
+            (std::chrono::steady_clock::now() - mConsensusStartTime).count ();
         mClosePercent = mCurrentMSeconds * 100 / mPreviousMSeconds;
 
         switch (mState)
@@ -989,9 +988,7 @@ private:
             protocol::TMValidation val;
             val.set_validation (&validation[0], validation.size ());
             // Send signed validation to all of our directly connected peers
-            getApp ().overlay ().foreach (send_always (
-                std::make_shared <Message> (
-                    val, protocol::mtVALIDATION)));
+            getApp().overlay().send(val);
             WriteLog (lsINFO, LedgerConsensus)
                 << "CNF Val " << newLCLHash;
         }
@@ -1257,9 +1254,7 @@ private:
         Blob sig = mOurPosition->sign ();
         prop.set_nodepubkey (&pubKey[0], pubKey.size ());
         prop.set_signature (&sig[0], sig.size ());
-        getApp ().overlay ().foreach (send_always (
-            std::make_shared<Message> (
-                prop, protocol::mtPROPOSE_LEDGER)));
+        getApp().overlay().send(prop);
     }
 
     /** Let peers know that we a particular transactions set so they
@@ -1425,11 +1420,11 @@ private:
     void updateOurPositions ()
     {
         // Compute a cutoff time
-        boost::posix_time::ptime peerCutoff
-            = boost::posix_time::second_clock::universal_time ();
-        boost::posix_time::ptime ourCutoff
-            = peerCutoff - boost::posix_time::seconds (PROPOSE_INTERVAL);
-        peerCutoff -= boost::posix_time::seconds (PROPOSE_FRESHNESS);
+        auto peerCutoff
+            = std::chrono::steady_clock::now ();
+        auto ourCutoff
+            = peerCutoff - std::chrono::seconds (PROPOSE_INTERVAL);
+        peerCutoff -= std::chrono::seconds (PROPOSE_FRESHNESS);
 
         bool changes = false;
         std::shared_ptr<SHAMap> ourPosition;
@@ -1620,28 +1615,6 @@ private:
                         << "We should do delayed relay of this proposal,"
                         << " but we cannot";
                 }
-
-    #if 0
-    // FIXME: We can't do delayed relay because we don't have the signature
-                std::set<Peer::id_t> peers
-
-                if (relay && getApp().getHashRouter ().swapSet (proposal.getSuppress (), set, SF_RELAYED))
-                {
-                    WriteLog (lsDEBUG, LedgerConsensus) << "Stored proposal delayed relay";
-                    protocol::TMProposeSet set;
-                    set.set_proposeseq
-                    set.set_currenttxhash (, 256 / 8);
-                    previousledger
-                    closetime
-                    nodepubkey
-                    signature
-                    getApp ().overlay ().foreach (send_if_not (
-                        std::make_shared<Message> (
-                            set, protocol::mtPROPOSE_LEDGER),
-                                peer_in_set(peers)));
-                }
-
-    #endif
             }
         }
     }
@@ -1654,7 +1627,7 @@ private:
         checkOurValidation ();
         mState = lcsESTABLISH;
         mConsensusStartTime
-            = boost::posix_time::microsec_clock::universal_time ();
+            = std::chrono::steady_clock::now ();
         mCloseTime = getApp().getOPs ().getCloseTimeNC ();
         getApp().getOPs ().setLastCloseTime (mCloseTime);
         statusChange (protocol::neCLOSING_LEDGER, *mPreviousLedger);
@@ -1704,11 +1677,6 @@ private:
         Blob validation = v->getSigned ();
         protocol::TMValidation val;
         val.set_validation (&validation[0], validation.size ());
-    #if 0
-        getApp ().overlay ().visit (RelayMessage (
-            std::make_shared <Message> (
-                val, protocol::mtVALIDATION)));
-    #endif
         getApp().getOPs ().setLastValidation (v);
         WriteLog (lsWARNING, LedgerConsensus) << "Sending partial validation";
     }
@@ -1782,7 +1750,7 @@ private:
     int mCurrentMSeconds, mClosePercent, mCloseResolution;
     bool mHaveCloseTimeConsensus;
 
-    boost::posix_time::ptime        mConsensusStartTime;
+    std::chrono::steady_clock::time_point   mConsensusStartTime;
     int                             mPreviousProposers;
     int                             mPreviousMSeconds;
 
@@ -1852,27 +1820,26 @@ int applyTransaction (TransactionEngine& engine
 
     try
     {
-        bool didApply;
-        TER result = engine.applyTransaction (*txn, parms, didApply);
+        auto result = engine.applyTransaction (*txn, parms);
 
-        if (didApply)
+        if (result.second)
         {
             WriteLog (lsDEBUG, LedgerConsensus)
-            << "Transaction success: " << transHuman (result);
+            << "Transaction applied: " << transHuman (result.first);
             return LedgerConsensusImp::resultSuccess;
         }
 
-        if (isTefFailure (result) || isTemMalformed (result) ||
-            isTelLocal (result))
+        if (isTefFailure (result.first) || isTemMalformed (result.first) ||
+            isTelLocal (result.first))
         {
             // failure
             WriteLog (lsDEBUG, LedgerConsensus)
-                << "Transaction failure: " << transHuman (result);
+                << "Transaction failure: " << transHuman (result.first);
             return LedgerConsensusImp::resultFail;
         }
 
         WriteLog (lsDEBUG, LedgerConsensus)
-            << "Transaction retry: " << transHuman (result);
+            << "Transaction retry: " << transHuman (result.first);
         return LedgerConsensusImp::resultRetry;
     }
     catch (...)

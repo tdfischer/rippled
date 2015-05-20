@@ -46,6 +46,11 @@ namespace ripple {
 class PeerImp;
 class BasicConfig;
 
+enum
+{
+    maxTTL = 2
+};
+
 class OverlayImpl : public Overlay
 {
 public:
@@ -175,6 +180,25 @@ public:
     findPeerByShortID (Peer::id_t const& id) override;
 
     void
+    send (protocol::TMProposeSet& m) override;
+
+    void
+    send (protocol::TMValidation& m) override;
+
+    void
+    relay (protocol::TMProposeSet& m,
+        uint256 const& uid) override;
+
+    void
+    relay (protocol::TMValidation& m,
+        uint256 const& uid) override;
+
+    //--------------------------------------------------------------------------
+    //
+    // OverlayImpl
+    //
+
+    void
     add_active (std::shared_ptr<PeerImp> const& peer);
 
     void
@@ -191,6 +215,33 @@ public:
     /** Called when an active peer is destroyed. */
     void
     onPeerDeactivate (Peer::id_t id, RippleAddress const& publicKey);
+
+    // UnaryFunc will be called as
+    //  void(std::shared_ptr<PeerImp>&&)
+    //
+    template <class UnaryFunc>
+    void
+    for_each_unlocked (UnaryFunc&& f)
+    {
+        for (auto const& e : m_publicKeyMap)
+        {
+            auto sp = e.second.lock();
+            if (sp)
+                f(std::move(sp));
+        }
+    }
+
+    template <class UnaryFunc>
+    void
+    for_each (UnaryFunc&& f)
+    {
+        std::lock_guard <decltype(mutex_)> lock (mutex_);
+        for_each_unlocked(f);
+    }
+
+    std::size_t
+    selectPeers (PeerSet& set, std::size_t limit, std::function<
+        bool(std::shared_ptr<Peer> const&)> score) override;
 
     static
     bool

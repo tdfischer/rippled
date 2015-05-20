@@ -43,6 +43,7 @@ JSS ( Invalid );                    // out: app/misc/AccountState
 JSS ( LimitAmount );                // field.
 JSS ( OfferSequence );              // field.
 JSS ( Paths );                      // in/out: TransactionSign
+JSS ( historical_perminute );       // historical_perminute
 JSS ( SLE_hit_rate );               // out: GetCounts
 JSS ( SendMax );                    // in: TransactionSign
 JSS ( Sequence );                   // in/out: TransactionSign; field.
@@ -59,8 +60,10 @@ JSS ( account_data );               // out: AccountInfo
 JSS ( account_hash );               // out: LedgerToJson
 JSS ( account_id );                 // out: WalletPropose
 JSS ( account_index );              // in: AccountCurrencies, AccountOffers,
-                                    //     AccountInfo, AccountLines, OwnerInfo
+                                    //     AccountInfo, AccountLines,
+                                    //     AccountObjects, OwnerInfo
                                     // out: AccountOffers
+JSS ( account_objects );            // out: AccountObjects
 JSS ( account_root );               // in: LedgerEntry
 JSS ( accounts );                   // in: LedgerEntry, Subscribe,
                                     //     handlers/Ledger, Unsubscribe
@@ -178,6 +181,7 @@ JSS ( issuer );                     // in: RipplePathFind, Subscribe,
                                     // out: paths/Node, STPathSet, STAmount
 JSS ( key );                        // out: WalletSeed
 JSS ( key_type );                   // in/out: WalletPropose, TransactionSign
+JSS ( latency );                    // out: PeerImp
 JSS ( last );                       // out: RPCVersion
 JSS ( last_close );                 // out: NetworkOPs
 JSS ( ledger );                     // in: NetworkOPs, LedgerCleaner,
@@ -200,7 +204,7 @@ JSS ( ledger_min );                 // in, out: AccountTx*
 JSS ( ledger_time );                // out: NetworkOPs
 JSS ( levels );                     // LogLevels
 JSS ( limit );                      // in/out: AccountTx*, AccountOffers,
-                                    //         AccountLines;
+                                    //         AccountLines, AccountObjects
                                     // in: LedgerData, BookOffers
 JSS ( limit_peer );                 // out: AccountLines
 JSS ( lines );                      // out: AccountLines
@@ -214,7 +218,8 @@ JSS ( load_fee );                   // out: LoadFeeTrackImp
 JSS ( local );                      // out: resource/Logic.h
 JSS ( local_txs );                  // out: GetCounts
 JSS ( marker );                     // in/out: AccountTx, AccountOffers,
-                                    //         AccountLines, LedgerData
+                                    //         AccountLines, AccountObjects,
+                                    //         LedgerData
                                     // in: BookOffers
 JSS ( master_key );                 // out: WalletPropose
 JSS ( master_seed );                // out: WalletPropose
@@ -350,7 +355,8 @@ JSS ( tx_signing_hash );            // out: TransactionSign
 JSS ( tx_unsigned );                // out: TransactionSign
 JSS ( txn_count );                  // out: NetworkOPs
 JSS ( txs );                        // out: TxHistory
-JSS ( type );                       // rpc; out: NetworkOPs, LedgerEntrySet
+JSS ( type );                       // in: AccountObjects
+                                    // out: NetworkOPs, LedgerEntrySet
                                     //      paths/Node.cpp, OverlayImpl, Logic
 JSS ( type_hex );                   // out: STPathSet
 JSS ( unl );                        // out: UnlList

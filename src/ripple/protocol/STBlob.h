@@ -47,14 +47,14 @@ public:
             void(void* data, std::size_t size)
     */
     template <class Init>
-    STBlob (SField::ref f, std::size_t size,
+    STBlob (SField const& f, std::size_t size,
             Init&& init)
         : STBase(f), value_ (size)
     {
         init(value_.data(), value_.size());
     }
 
-    STBlob (SField::ref f,
+    STBlob (SField const& f,
             void const* data, std::size_t size)
         : STBase(f), value_ (data, size)
     {
@@ -65,18 +65,23 @@ public:
     {
     }
 
-    STBlob (SField::ref n)
+    STBlob (SField const& n)
         : STBase (n)
     {
     }
 
-    STBlob (SerialIter&, SField::ref name = sfGeneric);
+    STBlob (SerialIter&, SField const& name = sfGeneric);
 
-    static
-    std::unique_ptr<STBase>
-    deserialize (SerialIter& sit, SField::ref name)
+    STBase*
+    copy (std::size_t n, void* buf) const override
     {
-        return std::make_unique<STBlob> (name, sit.getVLBuffer ());
+        return emplace(n, buf, *this);
+    }
+
+    STBase*
+    move (std::size_t n, void* buf) override
+    {
+        return emplace(n, buf, std::move(*this));
     }
 
     std::size_t
@@ -148,12 +153,6 @@ public:
     isDefault () const override
     {
         return value_.empty ();
-    }
-
-    std::unique_ptr<STBase>
-    duplicate () const override
-    {
-        return std::make_unique<STBlob>(*this);
     }
 
 private:

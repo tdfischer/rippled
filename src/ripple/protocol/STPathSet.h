@@ -233,18 +233,22 @@ class STPathSet final
 public:
     STPathSet () = default;
 
-    STPathSet (SField::ref n)
+    STPathSet (SField const& n)
         : STBase (n)
     { }
 
-    static
-    std::unique_ptr<STBase>
-    deserialize (SerialIter& sit, SField::ref name);
+    STPathSet (SerialIter& sit, SField const& name);
 
-    std::unique_ptr<STBase>
-    duplicate () const override
+    STBase*
+    copy (std::size_t n, void* buf) const override
     {
-        return std::make_unique<STPathSet>(*this);
+        return emplace(n, buf, *this);
+    }
+
+    STBase*
+    move (std::size_t n, void* buf) override
+    {
+        return emplace(n, buf, std::move(*this));
     }
 
     void

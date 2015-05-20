@@ -66,11 +66,11 @@ public:
         bool const defaultPathsAllowed = !(uTxFlags & tfNoRippleDirect);
         bool const bPaths = mTxn.isFieldPresent (sfPaths);
         bool const bMax = mTxn.isFieldPresent (sfSendMax);
-        
+
         STAmount const saDstAmount (mTxn.getFieldAmount (sfAmount));
-        
+
         STAmount maxSourceAmount;
-        
+
         if (bMax)
             maxSourceAmount = mTxn.getFieldAmount (sfSendMax);
         else if (saDstAmount.isNative ())
@@ -192,7 +192,7 @@ public:
 
         // Open a ledger for editing.
         auto const index = getAccountRootIndex (uDstAccountID);
-        SLE::pointer sleDst (mEngine->entryCache (ltACCOUNT_ROOT, index));
+        SLE::pointer sleDst (mEngine->view().entryCache (ltACCOUNT_ROOT, index));
 
         if (!sleDst)
         {
@@ -218,7 +218,7 @@ public:
                 // transaction would succeed.
                 return telNO_DST_PARTIAL;
             }
-            else if (saDstAmount.getNValue () < mEngine->getLedger ()->getReserve (0))
+            else if (saDstAmount < mEngine->getLedger ()->getReserve (0))
             {
                 // getReserve() is the minimum amount that an account can have.
                 // Reserve is not scaled by load.
@@ -234,7 +234,7 @@ public:
 
             // Create the account.
             auto const newIndex = getAccountRootIndex (uDstAccountID);
-            sleDst = mEngine->entryCreate (ltACCOUNT_ROOT, newIndex);
+            sleDst = mEngine->view().entryCreate (ltACCOUNT_ROOT, newIndex);
             sleDst->setFieldAccount (sfAccount, uDstAccountID);
             sleDst->setFieldU32 (sfSequence, 1);
         }
@@ -255,7 +255,7 @@ public:
             // Tell the engine that we are intending to change the the destination
             // account.  The source account gets always charged a fee so it's always
             // marked as modified.
-            mEngine->entryModify (sleDst);
+            mEngine->view().entryModify (sleDst);
         }
 
         TER terResult;
@@ -292,14 +292,19 @@ public:
                 }
                 else
                 {
-                    auto rc = path::RippleCalc::rippleCalculate (
-                        mEngine->view (),
-                        maxSourceAmount,
-                        saDstAmount,
-                        uDstAccountID,
-                        mTxnAccountID,
-                        spsPaths,
-                        &rcInput);
+
+                    path::RippleCalc::Output rc;
+                    {
+                        ScopedDeferCredits g (mEngine->view ());
+                        rc = path::RippleCalc::rippleCalculate (
+                            mEngine->view (),
+                            maxSourceAmount,
+                            saDstAmount,
+                            uDstAccountID,
+                            mTxnAccountID,
+                            spsPaths,
+                            &rcInput);
+                    }
 
                     // TODO: is this right?  If the amount is the correct amount, was
                     // the delivered amount previously set?
@@ -339,7 +344,7 @@ public:
             //
             // Make sure have enough reserve to send. Allow final spend to use
             // reserve for fee.
-            auto const mmm = std::max(uReserve, mTxn.getTransactionFee ().getNValue ());
+            auto const mmm = std::max(uReserve, getNValue (mTxn.getTransactionFee ()));
             if (mPriorBalance < saDstAmount + mmm)
             {
                 // Vote no.

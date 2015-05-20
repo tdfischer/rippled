@@ -173,6 +173,7 @@ message TMProposeSet
     optional bool checkedSignature      = 7;    // node vouches signature is correct
     repeated bytes addedTransactions    = 10;   // not required if number is large
     repeated bytes removedTransactions  = 11;   // not required if number is large
+    optional uint32 hops                = 12;   // Number of hops traveled
 }
 
 enum TxSetStatus
@@ -192,8 +193,9 @@ message TMHaveTransactionSet
 // Used to sign a final closed ledger after reprocessing
 message TMValidation
 {
-    required bytes validation       = 1;        // in STValidation signed form
-    optional bool checkedSignature  = 2;        // node vouches signature is correct
+    required bytes validation       = 1;    // in STValidation signed form
+    optional bool checkedSignature  = 2;    // node vouches signature is correct
+    optional uint32 hops            = 3;    // Number of hops traveled
 }
 
 message TMGetPeers
@@ -298,6 +300,7 @@ message TMGetLedger
     repeated bytes nodeIDs          = 5;
     optional uint64 requestCookie   = 6;
     optional TMQueryType queryType  = 7;
+    optional uint32 queryDepth      = 8;    // How deep to go, number of extra levels
 }
 
 enum TMReplyError

@@ -38,14 +38,23 @@ namespace ripple {
 
 enum
 {
+    // Number of peers to start with
+    peerCountStart = 4
+
+    // Number of peers to add on a timeout
+    ,peerCountAdd = 2
+
     // millisecond for each ledger timeout
-    ledgerAcquireTimeoutMillis = 2500
+    ,ledgerAcquireTimeoutMillis = 2500
 
     // how many timeouts before we giveup
     ,ledgerTimeoutRetriesMax = 10
 
     // how many timeouts before we get aggressive
     ,ledgerBecomeAggressiveThreshold = 6
+
+    // How many nodes to consider a fetch "small"
+    ,fetchSmallNodes = 32
 };
 
 InboundLedger::InboundLedger (uint256 const& hash, std::uint32_t seq, fcReason reason,
@@ -65,6 +74,20 @@ InboundLedger::InboundLedger (uint256 const& hash, std::uint32_t seq, fcReason r
 
     if (m_journal.trace) m_journal.trace <<
         "Acquiring ledger " << mHash;
+}
+
+void InboundLedger::update (std::uint32_t seq)
+{
+    ScopedLockType sl (mLock);
+
+    if ((seq != 0) && (mSeq == 0))
+    {
+        // If we didn't know the sequence number, but now do, save it
+        mSeq = seq;
+    }
+
+    // Prevent this from being swept
+    touch ();
 }
 
 bool InboundLedger::checkLocal ()
@@ -107,7 +130,9 @@ void InboundLedger::init (ScopedLockType& collectionLock)
             "Acquiring ledger we already have locally: " << getHash ();
         mLedger->setClosed ();
         mLedger->setImmutable ();
-        getApp ().getLedgerMaster ().storeLedger (mLedger);
+
+        if (mReason != fcHISTORY)
+            getApp ().getLedgerMaster ().storeLedger (mLedger);
 
         // Check if this could be a newer fully-validated ledger
         if ((mReason == fcVALIDATION) || (mReason == fcCURRENT) || (mReason ==  fcCONSENSUS))
@@ -273,8 +298,7 @@ void InboundLedger::onTimer (bool wasProgress, ScopedLockType&)
         // so each peer gets triggered once
         if (mReason != fcHISTORY)
             trigger (Peer::ptr ());
-        if (pc < 4)
-            addPeers ();
+        addPeers ();
         if (mReason == fcHISTORY)
             trigger (Peer::ptr ());
     }
@@ -283,72 +307,9 @@ void InboundLedger::onTimer (bool wasProgress, ScopedLockType&)
 /** Add more peers to the set, if possible */
 void InboundLedger::addPeers ()
 {
-    Overlay::PeerSequence peerList = getApp().overlay ().getActivePeers ();
-
-    int vSize = peerList.size ();
-
-    if (vSize == 0)
-    {
-        WriteLog (lsERROR, InboundLedger) <<
-            "No peers to add for ledger acquisition";
-        return;
-    }
-
-    // FIXME-NIKB why are we doing this convoluted thing here instead of simply
-    // shuffling this vector and then pulling however many entries we need?
-
-    // We traverse the peer list in random order so as not to favor
-    // any particular peer
-    //
-    // VFALCO Use random_shuffle
-    //        http://en.cppreference.com/w/cpp/algorithm/random_shuffle
-    //
-    int firstPeer = rand () % vSize;
-
-    int found = 0;
-
-    // First look for peers that are likely to have this ledger
-    for (int i = 0; i < vSize; ++i)
-    {
-        Peer::ptr const& peer = peerList[ (i + firstPeer) % vSize];
-
-        if (peer->hasLedger (getHash (), mSeq))
-        {
-           if (peerHas (peer) && (++found > 6))
-               break;
-        }
-    }
-
-    if (!found)
-    { // Oh well, try some random peers
-        for (int i = 0; (i < 6) && (i < vSize); ++i)
-        {
-            if (peerHas (peerList[ (i + firstPeer) % vSize]))
-                ++found;
-        }
-        if (mSeq != 0)
-        {
-            if (m_journal.debug) m_journal.debug <<
-                "Chose " << found << " peer(s) for ledger " << mSeq;
-        }
-        else
-        {
-            if (m_journal.debug) m_journal.debug <<
-                "Chose " << found << " peer(s) for ledger " <<
-                    to_string (getHash ());
-        }
-    }
-    else if (mSeq != 0)
-    {
-        if (m_journal.debug) m_journal.debug <<
-            "Found " << found << " peer(s) with ledger " << mSeq;
-    }
-    else
-    {
-        if (m_journal.debug) m_journal.debug <<
-            "Found " << found << " peer(s) with ledger " <<
-                to_string (getHash ());
-    }
+    getApp().overlay().selectPeers (*this,
+        (getPeerCount() > 0) ? peerCountStart : peerCountAdd,
+        ScoreHasLedger (getHash(), mSeq));
 }
 
 std::weak_ptr<PeerSet> InboundLedger::pmDowncast ()
@@ -395,7 +356,9 @@ void InboundLedger::done ()
     {
         mLedger->setClosed ();
         mLedger->setImmutable ();
-        getApp().getLedgerMaster ().storeLedger (mLedger);
+        if (mReason != fcHISTORY)
+            getApp().getLedgerMaster ().storeLedger (mLedger);
+        getApp().getInboundLedgers().onLedgerFetched(mReason);
     }
     else
         getApp().getInboundLedgers ().logFailure (mHash);
@@ -545,6 +508,12 @@ void InboundLedger::trigger (Peer::ptr const& peer)
     if (mLedger)
         tmGL.set_ledgerseq (mLedger->getLedgerSeq ());
 
+    // If the peer has high latency, query extra deep
+    if (peer && peer->isHighLatency ())
+        tmGL.set_querydepth (2);
+    else
+        tmGL.set_querydepth (1);
+
     // Get the state data first because it's the most likely to be useful
     // if we wind up abandoning this fetch.
     if (mHaveHeader && !mHaveState && !mFailed)
@@ -608,6 +577,12 @@ void InboundLedger::trigger (Peer::ptr const& peer)
                         {
                             * (tmGL.add_nodeids ()) = id.getRawString ();
                         }
+
+                        // If we're not querying for a lot of entries,
+                        // query extra deep
+                        if (nodeIDs.size() <= fetchSmallNodes)
+                            tmGL.set_querydepth (tmGL.querydepth() + 1);
+
                         if (m_journal.trace) m_journal.trace <<
                             "Sending AS node " << nodeIDs.size () <<
                                 " request to " << (
@@ -982,7 +957,7 @@ bool InboundLedger::takeAsRootNode (Blob const& data, SHAMapAddNode& san)
 */
 bool InboundLedger::takeTxRootNode (Blob const& data, SHAMapAddNode& san)
 {
-    if (mFailed || mHaveState)
+    if (mFailed || mHaveTransactions)
     {
         san.incDuplicate();
         return true;
