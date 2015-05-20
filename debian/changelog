@@ -1,3 +1,13 @@
+rippled (0.28.1~1.gbp1dc76e) trusty; urgency=medium
+
+  ** SNAPSHOT build @1dc76ede257816a2baa50c506cac63ee0d173173 **
+
+  * Patch default configuration to be insecure, workaround for RIPD-886
+  * Add logrotate config
+  * Drop insecure default config patch that was upstreamed
+
+ -- Torrie Fischer <torrie@ripple.com>  Wed, 20 May 2015 21:04:16 +0000
+
 rippled (0.28.0-7) trusty; urgency=medium
 
   [ Torrie Fischer ]
