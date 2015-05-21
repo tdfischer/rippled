@@ -1,3 +1,12 @@
+rippled (0.28.1~2.gbp66a94b) trusty; urgency=medium
+
+  ** SNAPSHOT build @66a94b7a08b9ec106f74842605159fbbb6267af1 **
+
+  * Update changelog for 0.28.1~1.gbp1dc76e
+  * Dont start rippled on install
+
+ -- Torrie Fischer <torrie@ripple.com>  Thu, 21 May 2015 21:59:03 +0000
+
 rippled (0.28.1~1.gbp1dc76e) trusty; urgency=medium
 
   ** SNAPSHOT build @1dc76ede257816a2baa50c506cac63ee0d173173 **
