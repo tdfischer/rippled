@@ -3,7 +3,6 @@ if [ -x "/etc/init.d/rippled" ] || [ -e "/etc/init/rippled.conf" ]; then
 	if [ ! -e "/etc/init/rippled.conf" ]; then
 		update-rc.d rippled defaults >/dev/null
 	fi
-	invoke-rc.d rippled start || exit $?
 fi
 # End automatically added section
 
